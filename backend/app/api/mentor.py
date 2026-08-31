@@ -92,12 +92,20 @@ async def send_message(
     conn.close()
 
     # Get AI response
-    ai_content = await get_mentor_response(
-        student_message=message.content,
-        conversation_history=conversation_history,
-        profile=profile,
-        portfolio=portfolio,
-    )
+    try:
+        ai_content = await get_mentor_response(
+            student_message=message.content,
+            conversation_history=conversation_history,
+            profile=profile,
+            portfolio=portfolio,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=502,
+            detail="AI service unavailable. Please try again later.",
+        )
 
     # Save mentor response
     conn = get_db()

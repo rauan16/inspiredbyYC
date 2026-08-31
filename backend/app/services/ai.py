@@ -1,4 +1,5 @@
 import httpx
+from fastapi import HTTPException
 from app.config import settings
 
 
@@ -12,14 +13,6 @@ SYSTEM_PROMPT = """Ты — ULIE, ИИ-наставник для школьни�
 - Давай конкретные шаги и рекомендации
 
 Если у студента есть цели, интересы или портфолио, учитывай их в ответах."""
-
-FALLBACK_RESPONSES = {
-    "привет": "Привет! Я ULIE, твой ИИ-наставник. Чем могу помочь? Могу помочь с портфолио, поступлением или найти возможности для тебя.",
-    "возможности": "Рекомендую посмотреть вкладку 'Opportunities' — там собраны олимпиады, хакатоны и стажировки. Фильтруй по категориям и сохраняй понравившееся!",
-    "портфолио": "Хорошее портфолио — это 5-7 сильных проектов. Добавь достижения из олимпиад, проекты с хакатонов и волонтёрский опыт. Используй раздел 'Portfolio'.",
-    "поступление": "Для поступления важны: 1) Средний балл 4.5+, 2) Олимпиадные достижения, 3) Портфолио проектов, 4) Рекомендательные письма. Какой вуз тебя интересует?",
-    "default": "Спасибо за вопрос! К сожалению, сервис ИИ временно недоступен. Попробуй спросить о портфолио, возможностях или поступлении — у меня есть базовые рекомендации."
-}
 
 
 async def get_mentor_response(
@@ -50,38 +43,36 @@ async def get_mentor_response(
 
     messages.append({"role": "user", "content": student_message})
 
-    # Try to call AI service
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(
-                f"{settings.AI_API_BASE_URL}/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {settings.AI_API_KEY}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": settings.AI_MODEL,
-                    "messages": messages,
-                    "max_tokens": 1024,
-                    "temperature": 0.7,
-                },
-            )
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        response = await client.post(
+            f"{settings.AI_API_BASE_URL}/chat/completions",
+            headers={
+                "Authorization": f"Bearer {settings.AI_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": settings.AI_MODEL,
+                "messages": messages,
+                "max_tokens": 1024,
+                "temperature": 0.7,
+            },
+        )
 
-        if response.status_code == 200:
-            data = response.json()
-            choices = data.get("choices", [])
-            if choices:
-                return choices[0].get("message", {}).get("content", "")
-    except (httpx.RequestError, Exception):
-        pass
+    if response.status_code != 200:
+        raise HTTPException(
+            status_code=502,
+            detail="AI service error",
+        )
 
-    # Fallback response based on keywords
-    msg_lower = student_message.lower()
-    for keyword, response in FALLBACK_RESPONSES.items():
-        if keyword in msg_lower:
-            return response
+    data = response.json()
+    choices = data.get("choices", [])
+    if not choices:
+        raise HTTPException(
+            status_code=502,
+            detail="AI service returned no response",
+        )
 
-    return FALLBACK_RESPONSES["default"]
+    return choices[0].get("message", {}).get("content", "")
 
 
 def _format_profile_context(profile: dict) -> str:

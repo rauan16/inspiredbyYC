@@ -1,9 +1,0 @@
-{
-    "type": "web_service",
-    "name": "ulys-api",
-    "runtime": "python",
-    "repo": "https://github.com/rauan16/inspiredbyYC",
-    "rootDir": "backend",
-    "buildCommand": "pip install -r requirements.txt",
-    "startCommand": "uvicorn app.main:app --host 0.0.0.0 --port 10000"
-}

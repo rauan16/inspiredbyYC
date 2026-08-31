@@ -13,6 +13,14 @@ SYSTEM_PROMPT = """Ты — ULIE, ИИ-наставник для школьни�
 
 Если у студента есть цели, интересы или портфолио, учитывай их в ответах."""
 
+FALLBACK_RESPONSES = {
+    "привет": "Привет! Я ULIE, твой ИИ-наставник. Чем могу помочь? Могу помочь с портфолио, поступлением или найти возможности для тебя.",
+    "возможности": "Рекомендую посмотреть вкладку 'Opportunities' — там собраны олимпиады, хакатоны и стажировки. Фильтруй по категориям и сохраняй понравившееся!",
+    "портфолио": "Хорошее портфолио — это 5-7 сильных проектов. Добавь достижения из олимпиад, проекты с хакатонов и волонтёрский опыт. Используй раздел 'Portfolio'.",
+    "поступление": "Для поступления важны: 1) Средний балл 4.5+, 2) Олимпиадные достижения, 3) Портфолио проектов, 4) Рекомендательные письма. Какой вуз тебя интересует?",
+    "default": "Спасибо за вопрос! К сожалению, сервис ИИ временно недоступен. Попробуй спросить о портфолио, возможностях или поступлении — у меня есть базовые рекомендации."
+}
+
 
 async def get_mentor_response(
     student_message: str,
@@ -42,8 +50,9 @@ async def get_mentor_response(
 
     messages.append({"role": "user", "content": student_message})
 
+    # Try to call AI service
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
                 f"{settings.AI_API_BASE_URL}/chat/completions",
                 headers={
@@ -57,18 +66,22 @@ async def get_mentor_response(
                     "temperature": 0.7,
                 },
             )
-    except httpx.RequestError as e:
-        return f"Извини, сервис ИИ временно недоступен. Попробуй позже. (Ошибка: {type(e).__name__})"
 
-    if response.status_code != 200:
-        return "Извини, не удалось получить ответ от ИИ. Попробуй ещё раз."
+        if response.status_code == 200:
+            data = response.json()
+            choices = data.get("choices", [])
+            if choices:
+                return choices[0].get("message", {}).get("content", "")
+    except (httpx.RequestError, Exception):
+        pass
 
-    data = response.json()
-    choices = data.get("choices", [])
-    if not choices:
-        return "Извини, ИИ не вернул ответ. Попробуй ещё раз."
+    # Fallback response based on keywords
+    msg_lower = student_message.lower()
+    for keyword, response in FALLBACK_RESPONSES.items():
+        if keyword in msg_lower:
+            return response
 
-    return choices[0].get("message", {}).get("content", "")
+    return FALLBACK_RESPONSES["default"]
 
 
 def _format_profile_context(profile: dict) -> str:

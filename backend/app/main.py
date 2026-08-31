@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import auth, mentor, opportunities, portfolio, profile, saved_opportunities, sync
 from app.config import settings
+from app.database import init_db, seed_opportunities, seed_universities
 
 app = FastAPI(
     title="ULYS API",
@@ -17,6 +18,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+async def startup_event():
+    init_db()
+    seed_opportunities()
+    seed_universities()
 
 
 @app.get("/health")

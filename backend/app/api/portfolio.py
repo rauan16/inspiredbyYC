@@ -1,8 +1,9 @@
+import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 
 from app.auth import get_current_user
-from app.database import supabase_request
-from app.schemas.opportunity import OpportunityResponse
+from app.database import get_db
 from app.schemas.portfolio import (
     PortfolioEntryCreate,
     PortfolioEntryResponse,
@@ -16,20 +17,14 @@ router = APIRouter(prefix="/api/portfolio", tags=["portfolio"])
 @router.get("", response_model=list[PortfolioEntryResponse])
 async def list_portfolio(current_user: dict = Depends(get_current_user)):
     user_id = current_user["id"]
-    response = await supabase_request(
-        method="GET",
-        path="portfolio_items",
-        user_token=current_user.get("token"),
-        params={"user_id": f"eq.{user_id}", "select": "*", "order": "sort_order.asc"},
-    )
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT * FROM portfolio_items WHERE user_id = ? ORDER BY sort_order ASC",
+        (user_id,),
+    ).fetchall()
+    conn.close()
 
-    if response.status_code != 200:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch portfolio",
-        )
-
-    return [_map_portfolio_entry(item) for item in response.json()]
+    return [_row_to_portfolio_entry(row) for row in rows]
 
 
 @router.post("", response_model=PortfolioEntryResponse)
@@ -38,46 +33,39 @@ async def create_portfolio_entry(
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["id"]
+    conn = get_db()
 
-    count_response = await supabase_request(
-        method="GET",
-        path="portfolio_items",
-        user_token=current_user.get("token"),
-        params={"user_id": f"eq.{user_id}", "select": "id"},
-        prefer="count=exact",
-    )
-
-    sort_order = 0
-    if count_response.status_code == 200:
-        content_range = count_response.headers.get("content-range", "")
-        if "/" in content_range:
-            try:
-                sort_order = int(content_range.split("/")[-1]) + 1
-            except ValueError:
-                sort_order = 0
+    # Get max sort_order
+    max_order = conn.execute(
+        "SELECT MAX(sort_order) FROM portfolio_items WHERE user_id = ?",
+        (user_id,),
+    ).fetchone()[0]
+    sort_order = (max_order or 0) + 1
 
     entry_data = entry.model_dump(exclude_unset=True)
-    entry_data["user_id"] = user_id
-    entry_data["sort_order"] = sort_order
+    entry_id = str(uuid.uuid4())
 
-    response = await supabase_request(
-        method="POST",
-        path="portfolio_items",
-        user_token=current_user.get("token"),
-        json=entry_data,
-        prefer="return=representation",
-    )
+    conn.execute("""
+        INSERT INTO portfolio_items (id, user_id, section, title, subtitle, date, description, sort_order)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        entry_id,
+        user_id,
+        entry_data.get("section", ""),
+        entry_data.get("title", ""),
+        entry_data.get("subtitle"),
+        entry_data.get("date"),
+        entry_data.get("description"),
+        sort_order,
+    ))
+    conn.commit()
 
-    if response.status_code not in (200, 201):
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create portfolio entry",
-        )
+    row = conn.execute(
+        "SELECT * FROM portfolio_items WHERE id = ?", (entry_id,)
+    ).fetchone()
+    conn.close()
 
-    data = response.json()
-    if isinstance(data, list) and data:
-        return _map_portfolio_entry(data[0])
-    return await list_portfolio(current_user)
+    return _row_to_portfolio_entry(row)
 
 
 @router.patch("/{entry_id}", response_model=PortfolioEntryResponse)
@@ -95,28 +83,33 @@ async def update_portfolio_entry(
             detail="No fields to update",
         )
 
-    response = await supabase_request(
-        method="PATCH",
-        path="portfolio_items",
-        user_token=current_user.get("token"),
-        params={"id": f"eq.{entry_id}", "user_id": f"eq.{user_id}"},
-        json=update_data,
-        prefer="return=representation",
-    )
+    conn = get_db()
 
-    if response.status_code not in (200, 204):
+    # Build dynamic UPDATE query
+    fields = []
+    values = []
+    for key, value in update_data.items():
+        fields.append(f"{key} = ?")
+        values.append(value)
+
+    values.extend([entry_id, user_id])
+    query = f"UPDATE portfolio_items SET {', '.join(fields)}, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?"
+    conn.execute(query, values)
+    conn.commit()
+
+    row = conn.execute(
+        "SELECT * FROM portfolio_items WHERE id = ? AND user_id = ?",
+        (entry_id, user_id),
+    ).fetchone()
+    conn.close()
+
+    if row is None:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update portfolio entry",
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Portfolio entry not found",
         )
 
-    if response.status_code == 204 or not response.json():
-        return await _get_single_entry(entry_id, current_user)
-
-    data = response.json()
-    if data:
-        return _map_portfolio_entry(data[0])
-    return await _get_single_entry(entry_id, current_user)
+    return _row_to_portfolio_entry(row)
 
 
 @router.delete("/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -125,18 +118,13 @@ async def delete_portfolio_entry(
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["id"]
-    response = await supabase_request(
-        method="DELETE",
-        path="portfolio_items",
-        user_token=current_user.get("token"),
-        params={"id": f"eq.{entry_id}", "user_id": f"eq.{user_id}"},
+    conn = get_db()
+    conn.execute(
+        "DELETE FROM portfolio_items WHERE id = ? AND user_id = ?",
+        (entry_id, user_id),
     )
-
-    if response.status_code not in (200, 204):
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete portfolio entry",
-        )
+    conn.commit()
+    conn.close()
 
 
 @router.post("/reorder")
@@ -145,41 +133,26 @@ async def reorder_portfolio(
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["id"]
+    conn = get_db()
+
     for item in request.items:
-        await supabase_request(
-            method="PATCH",
-            path="portfolio_items",
-            user_token=current_user.get("token"),
-            params={"id": f"eq.{item.id}", "user_id": f"eq.{user_id}"},
-            json={"sort_order": item.sort_order},
+        conn.execute(
+            "UPDATE portfolio_items SET sort_order = ? WHERE id = ? AND user_id = ?",
+            (item.sort_order, item.id, user_id),
         )
 
+    conn.commit()
+    conn.close()
     return {"message": "Portfolio reordered"}
 
 
-async def _get_single_entry(entry_id: str, current_user: dict) -> PortfolioEntryResponse:
-    response = await supabase_request(
-        method="GET",
-        path="portfolio_items",
-        user_token=current_user.get("token"),
-        params={"id": f"eq.{entry_id}", "select": "*"},
-    )
-    data = response.json()
-    if not data:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Portfolio entry not found",
-        )
-    return _map_portfolio_entry(data[0])
-
-
-def _map_portfolio_entry(item: dict) -> PortfolioEntryResponse:
+def _row_to_portfolio_entry(row) -> PortfolioEntryResponse:
     return PortfolioEntryResponse(
-        id=item.get("id", ""),
-        section=item.get("section", ""),
-        title=item.get("title", ""),
-        subtitle=item.get("subtitle"),
-        date=item.get("date"),
-        description=item.get("description"),
-        sort_order=item.get("sort_order"),
+        id=row["id"],
+        section=row["section"],
+        title=row["title"],
+        subtitle=row["subtitle"],
+        date=row["date"],
+        description=row["description"],
+        sort_order=row["sort_order"],
     )

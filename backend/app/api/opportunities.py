@@ -1,7 +1,8 @@
+import json
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.auth import get_current_user
-from app.database import supabase_request
+from app.database import get_db
 from app.schemas.opportunity import OpportunityResponse
 
 router = APIRouter(prefix="/api/opportunities", tags=["opportunities"])
@@ -14,31 +15,26 @@ async def list_opportunities(
     search: str | None = None,
     current_user: dict = Depends(get_current_user),
 ):
-    params = {"select": "*", "order": "deadline.asc"}
+    conn = get_db()
+    query = "SELECT * FROM opportunities WHERE 1=1"
+    params = []
+
     if category:
-        params["category"] = f"eq.{category}"
+        query += " AND category = ?"
+        params.append(category)
     if format:
-        params["format"] = f"eq.{format}"
+        query += " AND format = ?"
+        params.append(format)
     if search:
-        params["or"] = f"(title.ilike.*{search}*,organization.ilike.*{search}*)"
+        query += " AND (title LIKE ? OR organization LIKE ?)"
+        params.extend([f"%{search}%", f"%{search}%"])
 
-    response = await supabase_request(
-        method="GET",
-        path="opportunities",
-        user_token=current_user.get("token"),
-        params=params,
-    )
+    query += " ORDER BY deadline ASC"
 
-    if response.status_code != 200:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch opportunities",
-        )
+    rows = conn.execute(query, params).fetchall()
+    conn.close()
 
-    opportunities = []
-    for item in response.json():
-        opportunities.append(_map_opportunity(item))
-    return opportunities
+    return [_row_to_opportunity(row) for row in rows]
 
 
 @router.get("/{opportunity_id}", response_model=OpportunityResponse)
@@ -46,52 +42,50 @@ async def get_opportunity(
     opportunity_id: str,
     current_user: dict = Depends(get_current_user),
 ):
-    response = await supabase_request(
-        method="GET",
-        path="opportunities",
-        user_token=current_user.get("token"),
-        params={"id": f"eq.{opportunity_id}", "select": "*"},
-    )
+    conn = get_db()
+    row = conn.execute(
+        "SELECT * FROM opportunities WHERE id = ?", (opportunity_id,)
+    ).fetchone()
+    conn.close()
 
-    if response.status_code != 200:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch opportunity",
-        )
-
-    data = response.json()
-    if not data:
+    if row is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Opportunity not found",
         )
 
-    return _map_opportunity(data[0])
+    return _row_to_opportunity(row)
 
 
-def _map_opportunity(item: dict) -> OpportunityResponse:
-    timeline = item.get("timeline")
+def _row_to_opportunity(row) -> OpportunityResponse:
+    requirements = row["requirements"]
+    if isinstance(requirements, str):
+        try:
+            requirements = json.loads(requirements)
+        except (json.JSONDecodeError, TypeError):
+            requirements = []
+
+    timeline = row["timeline"]
     if isinstance(timeline, str):
-        import json
         try:
             timeline = json.loads(timeline)
-        except Exception:
-            timeline = None
+        except (json.JSONDecodeError, TypeError):
+            timeline = []
 
     return OpportunityResponse(
-        id=item.get("id", ""),
-        title=item.get("title", ""),
-        organization=item.get("organization", ""),
-        category=item.get("category", ""),
-        category_label=item.get("category_label"),
-        deadline=item.get("deadline"),
-        location=item.get("location"),
-        format=item.get("format"),
-        eligibility=item.get("eligibility"),
-        description=item.get("description"),
-        requirements=item.get("requirements"),
-        timeline=timeline,
-        color=item.get("color"),
-        website=item.get("website"),
-        recommended=item.get("recommended"),
+        id=row["id"],
+        title=row["title"],
+        organization=row["organization"],
+        category=row["category"],
+        category_label=row["category_label"],
+        deadline=row["deadline"],
+        location=row["location"],
+        format=row["format"],
+        eligibility=row["eligibility"],
+        description=row["description"],
+        requirements=requirements or [],
+        timeline=timeline or [],
+        color=row["color"],
+        website=row["website"],
+        recommended=bool(row["recommended"]),
     )

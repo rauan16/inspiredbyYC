@@ -1,9 +1,11 @@
+import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from app.auth import get_current_user
-from app.database import supabase_request
+from app.database import get_db
 from app.schemas.opportunity import OpportunityResponse
+from app.api.opportunities import _row_to_opportunity
 
 router = APIRouter(prefix="/api/saved-opportunities", tags=["saved-opportunities"])
 
@@ -15,29 +17,16 @@ class SaveRequest(BaseModel):
 @router.get("", response_model=list[OpportunityResponse])
 async def list_saved_opportunities(current_user: dict = Depends(get_current_user)):
     user_id = current_user["id"]
-    response = await supabase_request(
-        method="GET",
-        path="saved_opportunities",
-        user_token=current_user.get("token"),
-        params={
-            "user_id": f"eq.{user_id}",
-            "select": "opportunity_id,opportunities(*)",
-            "order": "created_at.desc",
-        },
-    )
+    conn = get_db()
+    rows = conn.execute("""
+        SELECT o.* FROM opportunities o
+        JOIN saved_opportunities s ON o.id = s.opportunity_id
+        WHERE s.user_id = ?
+        ORDER BY s.created_at DESC
+    """, (user_id,)).fetchall()
+    conn.close()
 
-    if response.status_code != 200:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch saved opportunities",
-        )
-
-    opportunities = []
-    for item in response.json():
-        opp = item.get("opportunities")
-        if opp:
-            opportunities.append(_map_saved_opportunity(opp))
-    return opportunities
+    return [_row_to_opportunity(row) for row in rows]
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -46,20 +35,33 @@ async def save_opportunity(
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["id"]
-    response = await supabase_request(
-        method="POST",
-        path="saved_opportunities",
-        user_token=current_user.get("token"),
-        json={"user_id": user_id, "opportunity_id": request.opportunity_id},
-        prefer="return=minimal",
-    )
+    conn = get_db()
 
-    if response.status_code not in (200, 201):
+    # Check if opportunity exists
+    opp = conn.execute(
+        "SELECT id FROM opportunities WHERE id = ?", (request.opportunity_id,)
+    ).fetchone()
+    if opp is None:
+        conn.close()
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to save opportunity",
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Opportunity not found",
         )
 
+    # Check if already saved
+    existing = conn.execute(
+        "SELECT id FROM saved_opportunities WHERE user_id = ? AND opportunity_id = ?",
+        (user_id, request.opportunity_id),
+    ).fetchone()
+
+    if existing is None:
+        conn.execute(
+            "INSERT INTO saved_opportunities (id, user_id, opportunity_id) VALUES (?, ?, ?)",
+            (str(uuid.uuid4()), user_id, request.opportunity_id),
+        )
+        conn.commit()
+
+    conn.close()
     return {"message": "Opportunity saved"}
 
 
@@ -69,35 +71,10 @@ async def unsave_opportunity(
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["id"]
-    response = await supabase_request(
-        method="DELETE",
-        path="saved_opportunities",
-        user_token=current_user.get("token"),
-        params={"user_id": f"eq.{user_id}", "opportunity_id": f"eq.{opportunity_id}"},
+    conn = get_db()
+    conn.execute(
+        "DELETE FROM saved_opportunities WHERE user_id = ? AND opportunity_id = ?",
+        (user_id, opportunity_id),
     )
-
-    if response.status_code not in (200, 204):
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to unsave opportunity",
-        )
-
-
-def _map_saved_opportunity(item: dict) -> OpportunityResponse:
-    return OpportunityResponse(
-        id=item.get("id", ""),
-        title=item.get("title", ""),
-        organization=item.get("organization", ""),
-        category=item.get("category", ""),
-        category_label=item.get("category_label"),
-        deadline=item.get("deadline"),
-        location=item.get("location"),
-        format=item.get("format"),
-        eligibility=item.get("eligibility"),
-        description=item.get("description"),
-        requirements=item.get("requirements"),
-        timeline=item.get("timeline"),
-        color=item.get("color"),
-        website=item.get("website"),
-        recommended=item.get("recommended"),
-    )
+    conn.commit()
+    conn.close()

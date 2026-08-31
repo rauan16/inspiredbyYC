@@ -1,7 +1,9 @@
+import json
+import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.auth import get_current_user
-from app.database import supabase_request
+from app.database import get_db
 from app.schemas.mentor import MentorMessageCreate, MentorMessageResponse
 from app.services.ai import get_mentor_response
 
@@ -11,24 +13,14 @@ router = APIRouter(prefix="/api/mentor", tags=["mentor"])
 @router.get("/messages", response_model=list[MentorMessageResponse])
 async def get_messages(current_user: dict = Depends(get_current_user)):
     user_id = current_user["id"]
-    response = await supabase_request(
-        method="GET",
-        path="mentor_messages",
-        user_token=current_user.get("token"),
-        params={
-            "user_id": f"eq.{user_id}",
-            "select": "*",
-            "order": "created_at.asc",
-        },
-    )
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT * FROM mentor_messages WHERE user_id = ? ORDER BY created_at ASC",
+        (user_id,),
+    ).fetchall()
+    conn.close()
 
-    if response.status_code != 200:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch messages",
-        )
-
-    return [_map_message(item) for item in response.json()]
+    return [_map_message(row) for row in rows]
 
 
 @router.post("/messages", response_model=MentorMessageResponse)
@@ -37,68 +29,69 @@ async def send_message(
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["id"]
+    conn = get_db()
 
-    student_response = await supabase_request(
-        method="POST",
-        path="mentor_messages",
-        user_token=current_user.get("token"),
-        json={
-            "user_id": user_id,
-            "role": "student",
-            "content": message.content,
-        },
-        prefer="return=representation",
+    # Save student message
+    student_id = str(uuid.uuid4())
+    conn.execute(
+        "INSERT INTO mentor_messages (id, user_id, role, content) VALUES (?, ?, ?, ?)",
+        (student_id, user_id, "student", message.content),
     )
+    conn.commit()
 
-    if student_response.status_code not in (200, 201):
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to save message",
-        )
+    # Get conversation history
+    history_rows = conn.execute(
+        "SELECT role, content FROM mentor_messages WHERE user_id = ? ORDER BY created_at ASC",
+        (user_id,),
+    ).fetchall()
 
-    history_response = await supabase_request(
-        method="GET",
-        path="mentor_messages",
-        user_token=current_user.get("token"),
-        params={
-            "user_id": f"eq.{user_id}",
-            "select": "role,content",
-            "order": "created_at.asc",
-        },
-    )
+    conversation_history = [
+        {"role": row["role"], "content": row["content"]}
+        for row in history_rows
+    ]
 
-    conversation_history = []
-    if history_response.status_code == 200:
-        for msg in history_response.json():
-            if msg.get("role") in ("student", "mentor"):
-                conversation_history.append(msg)
-
-    profile_response = await supabase_request(
-        method="GET",
-        path="profiles",
-        user_token=current_user.get("token"),
-        params={"id": f"eq.{user_id}", "select": "*"},
-    )
-
+    # Get profile
+    profile_row = conn.execute(
+        "SELECT * FROM profiles WHERE id = ?", (user_id,)
+    ).fetchone()
     profile = None
-    if profile_response.status_code == 200 and profile_response.json():
-        profile = profile_response.json()[0]
+    if profile_row:
+        interests = profile_row["interests"]
+        if isinstance(interests, str):
+            try:
+                interests = json.loads(interests)
+            except (json.JSONDecodeError, TypeError):
+                interests = []
 
-    portfolio_response = await supabase_request(
-        method="GET",
-        path="portfolio_items",
-        user_token=current_user.get("token"),
-        params={
-            "user_id": f"eq.{user_id}",
-            "select": "section,title,date",
-            "order": "sort_order.asc",
-        },
-    )
+        goals = profile_row["goals"]
+        if isinstance(goals, str):
+            try:
+                goals = json.loads(goals)
+            except (json.JSONDecodeError, TypeError):
+                goals = []
 
-    portfolio = []
-    if portfolio_response.status_code == 200:
-        portfolio = portfolio_response.json()
+        profile = {
+            "name": profile_row["name"],
+            "grade": profile_row["grade"],
+            "location": profile_row["location"],
+            "bio": profile_row["bio"],
+            "interests": interests or [],
+            "goals": goals or [],
+        }
 
+    # Get portfolio
+    portfolio_rows = conn.execute(
+        "SELECT section, title, date FROM portfolio_items WHERE user_id = ? ORDER BY sort_order ASC",
+        (user_id,),
+    ).fetchall()
+    portfolio = [
+        {"section": row["section"], "title": row["title"], "date": row["date"]}
+        for row in portfolio_rows
+    ]
+
+    conn.close()
+
+    # Get AI response
     ai_content = await get_mentor_response(
         student_message=message.content,
         conversation_history=conversation_history,
@@ -106,40 +99,35 @@ async def send_message(
         portfolio=portfolio,
     )
 
-    mentor_response = await supabase_request(
-        method="POST",
-        path="mentor_messages",
-        user_token=current_user.get("token"),
-        json={
-            "user_id": user_id,
-            "role": "mentor",
-            "content": ai_content,
-        },
-        prefer="return=representation",
+    # Save mentor response
+    conn = get_db()
+    mentor_id = str(uuid.uuid4())
+    conn.execute(
+        "INSERT INTO mentor_messages (id, user_id, role, content) VALUES (?, ?, ?, ?)",
+        (mentor_id, user_id, "mentor", ai_content),
     )
+    conn.commit()
 
-    if mentor_response.status_code not in (200, 201):
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to save mentor response",
-        )
+    row = conn.execute(
+        "SELECT * FROM mentor_messages WHERE id = ?", (mentor_id,)
+    ).fetchone()
+    conn.close()
 
-    data = mentor_response.json()
-    if isinstance(data, list) and data:
-        return _map_message(data[0])
+    return _map_message(row)
+
+
+def _map_message(row) -> MentorMessageResponse:
+    actions = row["actions"]
+    if isinstance(actions, str):
+        try:
+            actions = json.loads(actions)
+        except (json.JSONDecodeError, TypeError):
+            actions = []
 
     return MentorMessageResponse(
-        id="",
-        role="mentor",
-        content=ai_content,
-    )
-
-
-def _map_message(item: dict) -> MentorMessageResponse:
-    return MentorMessageResponse(
-        id=item.get("id", ""),
-        role=item.get("role", ""),
-        content=item.get("content", ""),
-        actions=item.get("actions"),
-        created_at=str(item.get("created_at", "")),
+        id=row["id"],
+        role=row["role"],
+        content=row["content"],
+        actions=actions,
+        created_at=str(row["created_at"] or ""),
     )

@@ -1,7 +1,8 @@
+import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.auth import get_current_user
-from app.database import supabase_request
+from app.database import get_db
 from app.schemas.sync import SyncRequest, SyncResponse
 
 router = APIRouter(prefix="/api/sync", tags=["sync"])
@@ -14,91 +15,102 @@ async def sync(
 ):
     user_id = current_user["id"]
     result = SyncResponse()
+    conn = get_db()
 
     if request.profile:
         update_data = request.profile.model_dump(exclude_unset=True)
         if update_data:
-            response = await supabase_request(
-                method="PATCH",
-                path="profiles",
-                user_token=current_user.get("token"),
-                params={"id": f"eq.{user_id}"},
-                json=update_data,
-            )
-            result.profile_updated = response.status_code in (200, 204)
+            fields = []
+            values = []
+            for key, value in update_data.items():
+                if key in ("interests", "goals") and isinstance(value, list):
+                    import json
+                    value = json.dumps(value)
+                fields.append(f"{key} = ?")
+                values.append(value)
+
+            values.append(user_id)
+            query = f"UPDATE profiles SET {', '.join(fields)}, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+            conn.execute(query, values)
+            result.profile_updated = True
 
     if request.portfolio_creates:
         for item in request.portfolio_creates:
             create_data = item.model_dump(exclude_unset=True)
-            create_data["user_id"] = user_id
-            create_response = await supabase_request(
-                method="POST",
-                path="portfolio_items",
-                user_token=current_user.get("token"),
-                json=create_data,
-                prefer="return=minimal",
-            )
-            if create_response.status_code in (200, 201):
-                result.portfolio_created += 1
+            entry_id = str(uuid.uuid4())
+
+            # Get max sort_order
+            max_order = conn.execute(
+                "SELECT MAX(sort_order) FROM portfolio_items WHERE user_id = ?",
+                (user_id,),
+            ).fetchone()[0]
+            sort_order = (max_order or 0) + 1
+
+            conn.execute("""
+                INSERT INTO portfolio_items (id, user_id, section, title, subtitle, date, description, sort_order)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                entry_id,
+                user_id,
+                create_data.get("section", ""),
+                create_data.get("title", ""),
+                create_data.get("subtitle"),
+                create_data.get("date"),
+                create_data.get("description"),
+                sort_order,
+            ))
+            result.portfolio_created += 1
 
     if request.portfolio:
         for item in request.portfolio:
             if item.deleted:
-                del_response = await supabase_request(
-                    method="DELETE",
-                    path="portfolio_items",
-                    user_token=current_user.get("token"),
-                    params={"id": f"eq.{item.id}", "user_id": f"eq.{user_id}"},
+                conn.execute(
+                    "DELETE FROM portfolio_items WHERE id = ? AND user_id = ?",
+                    (item.id, user_id),
                 )
-                if del_response.status_code in (200, 204):
-                    result.portfolio_deleted += 1
+                result.portfolio_deleted += 1
             else:
                 update_data = item.model_dump(exclude_unset=True, exclude={"id"})
                 if update_data:
-                    upd_response = await supabase_request(
-                        method="PATCH",
-                        path="portfolio_items",
-                        user_token=current_user.get("token"),
-                        params={"id": f"eq.{item.id}", "user_id": f"eq.{user_id}"},
-                        json=update_data,
-                    )
-                    if upd_response.status_code in (200, 204):
-                        result.portfolio_updated += 1
+                    fields = []
+                    values = []
+                    for key, value in update_data.items():
+                        fields.append(f"{key} = ?")
+                        values.append(value)
+
+                    values.extend([item.id, user_id])
+                    query = f"UPDATE portfolio_items SET {', '.join(fields)}, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?"
+                    conn.execute(query, values)
+                    result.portfolio_updated += 1
 
     if request.portfolio_reorder:
         for item in request.portfolio_reorder:
-            upd_response = await supabase_request(
-                method="PATCH",
-                path="portfolio_items",
-                user_token=current_user.get("token"),
-                params={"id": f"eq.{item.id}", "user_id": f"eq.{user_id}"},
-                json={"sort_order": item.sort_order},
+            conn.execute(
+                "UPDATE portfolio_items SET sort_order = ? WHERE id = ? AND user_id = ?",
+                (item.sort_order, item.id, user_id),
             )
-            if upd_response.status_code in (200, 204):
-                result.portfolio_reordered = True
+            result.portfolio_reordered = True
 
     if request.saved_opportunities:
         for item in request.saved_opportunities:
             if item.saved:
-                await supabase_request(
-                    method="POST",
-                    path="saved_opportunities",
-                    user_token=current_user.get("token"),
-                    json={"user_id": user_id, "opportunity_id": item.opportunity_id},
-                    prefer="return=minimal,resolution=ignore-duplicates",
-                )
-                result.saved_updated += 1
+                existing = conn.execute(
+                    "SELECT id FROM saved_opportunities WHERE user_id = ? AND opportunity_id = ?",
+                    (user_id, item.opportunity_id),
+                ).fetchone()
+                if existing is None:
+                    conn.execute(
+                        "INSERT INTO saved_opportunities (id, user_id, opportunity_id) VALUES (?, ?, ?)",
+                        (str(uuid.uuid4()), user_id, item.opportunity_id),
+                    )
+                    result.saved_updated += 1
             else:
-                del_response = await supabase_request(
-                    method="DELETE",
-                    path="saved_opportunities",
-                    user_token=current_user.get("token"),
-                    params={
-                        "user_id": f"eq.{user_id}",
-                        "opportunity_id": f"eq.{item.opportunity_id}",
-                    },
+                conn.execute(
+                    "DELETE FROM saved_opportunities WHERE user_id = ? AND opportunity_id = ?",
+                    (user_id, item.opportunity_id),
                 )
-                if del_response.status_code in (200, 204):
-                    result.saved_removed += 1
+                result.saved_removed += 1
 
+    conn.commit()
+    conn.close()
     return result

@@ -1,8 +1,7 @@
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.auth import get_current_user
-from app.config import settings
+from app.auth import get_current_user, create_user, authenticate_user, create_access_token
 from app.schemas.auth import AuthResponse, LoginRequest, SignupRequest, UserResponse
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -10,98 +9,34 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 @router.post("/signup", response_model=AuthResponse)
 async def signup(request: SignupRequest):
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(
-                f"{settings.SUPABASE_URL}/auth/v1/signup",
-                headers={
-                    "apikey": settings.SUPABASE_SERVICE_ROLE_KEY,
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "email": request.email,
-                    "password": request.password,
-                    "data": {"name": request.name},
-                },
-            )
-    except httpx.RequestError:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Auth service unavailable",
-        )
-
-    if response.status_code not in (200, 201):
-        detail = response.json().get("msg", "Signup failed")
-        raise HTTPException(
-            status_code=response.status_code,
-            detail=detail,
-        )
-
-    data = response.json()
-    access_token = data.get("access_token")
-    refresh_token = data.get("refresh_token")
-    user = data.get("user", {})
-
-    if not access_token:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="No access token returned",
-        )
+    user = create_user(request.email, request.password, request.name)
+    access_token = create_access_token(data={"sub": user["id"]})
 
     return AuthResponse(
         access_token=access_token,
-        refresh_token=refresh_token,
         user=UserResponse(
-            id=user.get("id", ""),
-            email=user.get("email"),
+            id=user["id"],
+            email=user["email"],
         ),
     )
 
 
 @router.post("/login", response_model=AuthResponse)
 async def login(request: LoginRequest):
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(
-                f"{settings.SUPABASE_URL}/auth/v1/token?grant_type=password",
-                headers={
-                    "apikey": settings.SUPABASE_SERVICE_ROLE_KEY,
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "email": request.email,
-                    "password": request.password,
-                },
-            )
-    except httpx.RequestError:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Auth service unavailable",
-        )
-
-    if response.status_code != 200:
+    user = authenticate_user(request.email, request.password)
+    if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
         )
 
-    data = response.json()
-    access_token = data.get("access_token")
-    refresh_token = data.get("refresh_token")
-    user = data.get("user", {})
-
-    if not access_token:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="No access token returned",
-        )
+    access_token = create_access_token(data={"sub": user["id"]})
 
     return AuthResponse(
         access_token=access_token,
-        refresh_token=refresh_token,
         user=UserResponse(
-            id=user.get("id", ""),
-            email=user.get("email"),
+            id=user["id"],
+            email=user["email"],
         ),
     )
 

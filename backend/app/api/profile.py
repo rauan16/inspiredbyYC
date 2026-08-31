@@ -1,7 +1,8 @@
+import json
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.auth import get_current_user
-from app.database import supabase_request
+from app.database import get_db
 from app.schemas.profile import ProfileResponse, ProfileUpdate
 
 router = APIRouter(prefix="/api/profile", tags=["profile"])
@@ -10,39 +11,19 @@ router = APIRouter(prefix="/api/profile", tags=["profile"])
 @router.get("", response_model=ProfileResponse)
 async def get_profile(current_user: dict = Depends(get_current_user)):
     user_id = current_user["id"]
-    response = await supabase_request(
-        method="GET",
-        path="profiles",
-        user_token=current_user.get("token"),
-        params={"id": f"eq.{user_id}", "select": "*"},
-    )
+    conn = get_db()
+    profile = conn.execute(
+        "SELECT * FROM profiles WHERE id = ?", (user_id,)
+    ).fetchone()
+    conn.close()
 
-    if response.status_code != 200:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch profile",
-        )
-
-    data = response.json()
-    if not data:
+    if profile is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Profile not found",
         )
 
-    profile = data[0]
-    return ProfileResponse(
-        id=profile.get("id"),
-        email=profile.get("email"),
-        name=profile.get("name"),
-        grade=profile.get("grade"),
-        location=profile.get("location"),
-        bio=profile.get("bio"),
-        interests=profile.get("interests"),
-        goals=profile.get("goals"),
-        portfolio_strength=profile.get("portfolio_strength"),
-        avatar_initials=profile.get("avatar_initials"),
-    )
+    return _row_to_profile(profile)
 
 
 @router.patch("", response_model=ProfileResponse)
@@ -59,39 +40,54 @@ async def update_profile(
             detail="No fields to update",
         )
 
-    response = await supabase_request(
-        method="PATCH",
-        path="profiles",
-        user_token=current_user.get("token"),
-        params={"id": f"eq.{user_id}"},
-        json=update_data,
-        prefer="return=representation",
-    )
+    conn = get_db()
 
-    if response.status_code not in (200, 204):
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update profile",
-        )
+    # Build dynamic UPDATE query
+    fields = []
+    values = []
+    for key, value in update_data.items():
+        if key in ("interests", "goals") and isinstance(value, list):
+            value = json.dumps(value)
+        fields.append(f"{key} = ?")
+        values.append(value)
 
-    if response.status_code == 204:
-        return await get_profile(current_user)
+    values.append(user_id)
+    query = f"UPDATE profiles SET {', '.join(fields)}, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+    conn.execute(query, values)
+    conn.commit()
 
-    data = response.json()
-    if data:
-        profile = data[0]
-    else:
-        return await get_profile(current_user)
+    profile = conn.execute(
+        "SELECT * FROM profiles WHERE id = ?", (user_id,)
+    ).fetchone()
+    conn.close()
+
+    return _row_to_profile(profile)
+
+
+def _row_to_profile(row) -> ProfileResponse:
+    interests = row["interests"]
+    if isinstance(interests, str):
+        try:
+            interests = json.loads(interests)
+        except (json.JSONDecodeError, TypeError):
+            interests = []
+
+    goals = row["goals"]
+    if isinstance(goals, str):
+        try:
+            goals = json.loads(goals)
+        except (json.JSONDecodeError, TypeError):
+            goals = []
 
     return ProfileResponse(
-        id=profile.get("id"),
-        email=profile.get("email"),
-        name=profile.get("name"),
-        grade=profile.get("grade"),
-        location=profile.get("location"),
-        bio=profile.get("bio"),
-        interests=profile.get("interests"),
-        goals=profile.get("goals"),
-        portfolio_strength=profile.get("portfolio_strength"),
-        avatar_initials=profile.get("avatar_initials"),
+        id=row["id"],
+        email=row["email"],
+        name=row["name"],
+        grade=row["grade"],
+        location=row["location"],
+        bio=row["bio"],
+        interests=interests or [],
+        goals=goals or [],
+        portfolio_strength=row["portfolio_strength"] or 0,
+        avatar_initials=row["avatar_initials"],
     )

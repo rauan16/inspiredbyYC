@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pathlib import Path
+import secrets
 
 
 class Settings(BaseSettings):
@@ -9,9 +10,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    SUPABASE_URL: str = ""
-    SUPABASE_SERVICE_ROLE_KEY: str = ""
-    SUPABASE_JWT_SECRET: str = ""
+    SECRET_KEY: str = secrets.token_urlsafe(32)
 
     AI_API_BASE_URL: str = "http://localhost:20128/v1"
     AI_API_KEY: str = ""

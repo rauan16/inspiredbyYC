@@ -10,6 +10,7 @@ import Link from "next/link";
 import { useProfile } from "@/hooks/useProfile";
 import { useMentorMessages } from "@/hooks/useMentorMessages";
 import { useOnlineStatus } from "@/hooks/useApi";
+import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 
 export default function MentorPage() {
   const [account, setAccount] = useState(student);
@@ -58,14 +59,20 @@ export default function MentorPage() {
               <div
                 key={m.id}
                 className={cn(
-                  "max-w-[85%] rounded-2xl px-4 py-3 text-[13.5px] leading-relaxed sm:max-w-[70%]",
+                  "prose-sm max-w-[85%] rounded-2xl px-4 py-3 text-[13.5px] leading-relaxed sm:max-w-[70%]",
                   m.role === "student"
-                    ? "ml-auto rounded-tr-sm bg-ink text-paper"
-                    : "mr-auto rounded-tl-sm bg-white border border-line text-ink"
+                    ? "ml-auto rounded-tr-sm bg-ink text-paper font-medium"
+                    : "mr-auto rounded-tl-sm bg-white border border-line text-ink",
                 )}
               >
-                {m.content}
-                {m.actions && (
+                {m.role === "mentor" ? (
+                  <div className="markdown-content">
+                    <MarkdownRenderer content={m.content} />
+                  </div>
+                ) : (
+                  m.content
+                )}
+                {m.actions && m.role === "mentor" && (
                   <div className="mt-3 flex flex-wrap gap-2">
                     {m.actions.map((a) => (
                       <span

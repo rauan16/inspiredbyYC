@@ -8,8 +8,8 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 
-MAX_RETRIES = 3
-RETRY_DELAY_BASE = 2  # seconds, doubled each retry
+MAX_RETRIES = 5
+RETRY_DELAY_BASE = 3  # seconds, doubled each retry
 
 
 SYSTEM_PROMPT = """Ты — ULIE, ИИ-наставник для школьников на платформе ULYS. Ты помогаешь студентам находить возможности, улучшать портфолио и готовиться к поступлению в университет.

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import httpx
 from fastapi import HTTPException
@@ -5,6 +6,10 @@ from app.config import settings
 
 
 logger = logging.getLogger(__name__)
+
+
+MAX_RETRIES = 3
+RETRY_DELAY_BASE = 2  # seconds, doubled each retry
 
 
 SYSTEM_PROMPT = """Ты — ULIE, ИИ-наставник для школьников на платформе ULYS. Ты помогаешь студентам находить возможности, улучшать портфолио и готовиться к поступлению в университет.
@@ -77,62 +82,91 @@ async def get_mentor_response(
 
     messages.append({"role": "user", "content": student_message})
 
-    async with httpx.AsyncClient(timeout=60.0) as client:
+    last_error = None
+    for attempt in range(MAX_RETRIES):
         try:
-            response = await client.post(
-                f"{settings.AI_API_BASE_URL}/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {settings.AI_API_KEY}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": settings.AI_MODEL,
-                    "messages": messages,
-                    "max_tokens": 1024,
-                    "temperature": 0.7,
-                },
-            )
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(
+                    f"{settings.AI_API_BASE_URL}/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {settings.AI_API_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": settings.AI_MODEL,
+                        "messages": messages,
+                        "max_tokens": 1024,
+                        "temperature": 0.7,
+                    },
+                )
+
+            if response.status_code == 429:
+                # Rate limited — wait and retry with exponential backoff
+                retry_after = response.headers.get("retry-after", "").strip()
+                if retry_after.isdigit():
+                    delay = int(retry_after)
+                else:
+                    delay = RETRY_DELAY_BASE * (2 ** attempt)
+                logger.warning(
+                    f"AI provider rate limited (429). Retrying in {delay}s "
+                    f"(attempt {attempt + 1}/{MAX_RETRIES})"
+                )
+                await asyncio.sleep(delay)
+                continue
+
+            if response.status_code != 200:
+                # Safe error logging: status code + sanitized message only
+                safe_detail = ""
+                try:
+                    err_data = response.json()
+                    safe_detail = str(err_data.get("error", {}).get("message", ""))[:200]
+                except Exception:
+                    safe_detail = response.text[:200]
+                logger.error(
+                    f"AI provider error: status={response.status_code}, message={safe_detail}"
+                )
+                raise HTTPException(
+                    status_code=502,
+                    detail="AI service error",
+                )
+
+            data = response.json()
+            choices = data.get("choices", [])
+            if not choices:
+                logger.error("AI provider error: no choices in response")
+                raise HTTPException(
+                    status_code=502,
+                    detail="AI service returned no response",
+                )
+
+            return choices[0].get("message", {}).get("content", "")
+
         except httpx.TimeoutException:
             logger.error("AI provider error: timeout (60s)")
-            raise HTTPException(
-                status_code=502,
-                detail="AI service timed out. Please try again later.",
-            )
-        except httpx.ConnectError as e:
+            last_error = "timeout"
+        except httpx.ConnectError:
             logger.error("AI provider error: connection failed")
-            raise HTTPException(
-                status_code=502,
-                detail="AI service unavailable. Please try again later.",
+            last_error = "connection"
+
+        # If not a 429 (handled above by continue), retry on timeout/connection errors
+        if attempt < MAX_RETRIES - 1 and last_error:
+            delay = RETRY_DELAY_BASE * (2 ** attempt)
+            logger.warning(
+                f"Retrying after {last_error} in {delay}s "
+                f"(attempt {attempt + 1}/{MAX_RETRIES})"
             )
+            await asyncio.sleep(delay)
 
-    if response.status_code != 200:
-        # Safe error logging: status code + sanitized message only
-        safe_detail = ""
-        try:
-            err_data = response.json()
-            safe_detail = str(err_data.get("error", {}).get("message", ""))[:200]
-        except Exception:
-            safe_detail = response.text[:200]
-        logger.error(
-            f"AI provider error: status={response.status_code}, message={safe_detail}"
-        )
-        # Propagate upstream error details for diagnostics (status + safe message)
+    # Exhausted all retries
+    if last_error:
         raise HTTPException(
             status_code=502,
-            detail=f"AI service error: upstream status={response.status_code}",
-            headers={"X-AI-Error-Message": safe_detail[:200]} if safe_detail else {},
+            detail="AI service unavailable. Please try again later.",
         )
-
-    data = response.json()
-    choices = data.get("choices", [])
-    if not choices:
-        logger.error("AI provider error: no choices in response")
-        raise HTTPException(
-            status_code=502,
-            detail="AI service returned no response",
-        )
-
-    return choices[0].get("message", {}).get("content", "")
+    raise HTTPException(
+        status_code=502,
+        detail="AI service error",
+    )
 
 
 def _format_profile_context(profile: dict) -> str:

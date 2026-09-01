@@ -1,6 +1,10 @@
+import logging
 import httpx
 from fastapi import HTTPException
 from app.config import settings
+
+
+logger = logging.getLogger(__name__)
 
 
 SYSTEM_PROMPT = """Ты — ULIE, ИИ-наставник для школьников на платформе ULYS. Ты помогаешь студентам находить возможности, улучшать портфолио и готовиться к поступлению в университет.
@@ -11,6 +15,36 @@ SYSTEM_PROMPT = """Ты — ULIE, ИИ-наставник для школьни�
 - Пиши на русском языке
 - Короткие ответы, без воды
 - Давай конкретные шаги и рекомендации
+
+Форматирование ответов:
+- Используй Markdown для структуры: #, ##, ###, **bold**, -, 1., `code`, >
+- Начинай с короткого введения (1-2 предложения)
+- Разбивай длинные ответы на секции с заголовками ##
+- Используй короткие абзацы (1-3 предложения)
+- Используй списки для перечислений более чем из 3 пунктов
+- Используй эмодзи экономно (примерно 1 на секцию): 🎯💡🚀📚🏆⚙️⚠️✅
+- Выделяй важные числа **жирным**: **1st place**, **200+ participants**
+- Заканчивай с **конкретным следующим шагом**
+
+Структура для подробных ответов:
+## 🔥 Основной заголовок
+
+Краткое вступление.
+
+### 💻 Секция 1
+Краткое описание.
+
+* Пункт 1
+* Пункт 2
+* Пункт 3
+
+### 🎯 Next step
+**Действие:** Выбери один пункт и пришли мне детали.
+
+Для простых вопросов: отвечай в 2-5 предложений.
+Для портфолио: используй ### Strengths, ### Weaknesses, ### What to improve, ### 🎯 Next step
+
+Не используй HTML, таблицы (только если действительно улучшают понимание), или чрезмерное форматирование.
 
 Если у студента есть цели, интересы или портфолио, учитывай их в ответах."""
 
@@ -44,29 +78,55 @@ async def get_mentor_response(
     messages.append({"role": "user", "content": student_message})
 
     async with httpx.AsyncClient(timeout=60.0) as client:
-        response = await client.post(
-            f"{settings.AI_API_BASE_URL}/chat/completions",
-            headers={
-                "Authorization": f"Bearer {settings.AI_API_KEY}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": settings.AI_MODEL,
-                "messages": messages,
-                "max_tokens": 1024,
-                "temperature": 0.7,
-            },
-        )
+        try:
+            response = await client.post(
+                f"{settings.AI_API_BASE_URL}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {settings.AI_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": settings.AI_MODEL,
+                    "messages": messages,
+                    "max_tokens": 1024,
+                    "temperature": 0.7,
+                },
+            )
+        except httpx.TimeoutException:
+            logger.error("AI provider error: timeout (60s)")
+            raise HTTPException(
+                status_code=502,
+                detail="AI service timed out. Please try again later.",
+            )
+        except httpx.ConnectError as e:
+            logger.error("AI provider error: connection failed")
+            raise HTTPException(
+                status_code=502,
+                detail="AI service unavailable. Please try again later.",
+            )
 
     if response.status_code != 200:
+        # Safe error logging: status code + sanitized message only
+        safe_detail = ""
+        try:
+            err_data = response.json()
+            safe_detail = str(err_data.get("error", {}).get("message", ""))[:200]
+        except Exception:
+            safe_detail = response.text[:200]
+        logger.error(
+            f"AI provider error: status={response.status_code}, message={safe_detail}"
+        )
+        # Propagate upstream error details for diagnostics (status + safe message)
         raise HTTPException(
             status_code=502,
-            detail="AI service error",
+            detail=f"AI service error: upstream status={response.status_code}",
+            headers={"X-AI-Error-Message": safe_detail[:200]} if safe_detail else {},
         )
 
     data = response.json()
     choices = data.get("choices", [])
     if not choices:
+        logger.error("AI provider error: no choices in response")
         raise HTTPException(
             status_code=502,
             detail="AI service returned no response",

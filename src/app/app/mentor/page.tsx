@@ -145,15 +145,15 @@ export default function MentorPage() {
                <p className="text-[11px] font-medium uppercase tracking-wide text-ink-soft">
                  Портфолио
                </p>
-               <div className="mt-1.5 flex items-center gap-2">
-                 <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-paper-dim">
-                   <div
-                     className="h-full rounded-full bg-red"
-                     style={{ width: `${profile.portfolioStrength ?? account.portfolioStrength ?? 0}%` }}
-                   />
-                 </div>
-                 <span className="text-[12.5px] font-medium">{profile.portfolioStrength ?? account.portfolioStrength ?? 0}%</span>
-               </div>
+                <div className="mt-1.5 flex items-center gap-2">
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-paper-dim">
+                    <div
+                      className="h-full rounded-full bg-red"
+                      style={{ width: `${profile.portfolioStrength ?? 0}%` }}
+                    />
+                  </div>
+                  <span className="text-[12.5px] font-medium">{profile.portfolioStrength ?? 0}%</span>
+                </div>
              </div>
 
              {(profile.academicInfo ?? account.academicInfo) && (

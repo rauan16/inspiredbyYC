@@ -7,7 +7,6 @@ export const student: Student = {
   bio: "Увлекаюсь STEM и экологическими проектами. Ищу возможности с реальным влиянием на город.",
   interests: ["STEM", "Экология", "Дизайн"],
   goals: ["Поступление в университет", "Портфолио проектов", "Волонтёрство"],
-  portfolioStrength: 78,
   avatarInitials: "ПБ",
   academicInfo: {
     school: "Специализированная школа №166",

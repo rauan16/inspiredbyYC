@@ -1,12 +1,12 @@
 import { TopBar } from "@/components/app/TopBar";
-import { getOpportunityById, opportunities } from "@/data/opportunities";
+import { opportunities as staticOpportunities } from "@/data/opportunities";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Clock, ExternalLink, MapPin, ShieldCheck, Users } from "lucide-react";
-import { getDeadlineLabel } from "@/lib/utils";
+import { getDeadlineLabel, getDeadlineStatusLabel, getDeadlineStatus } from "@/lib/utils";
 
 export function generateStaticParams() {
-  return opportunities.map((o) => ({ id: o.id }));
+  return staticOpportunities.map((o) => ({ id: o.id }));
 }
 
 const colorDim: Record<string, string> = {
@@ -22,7 +22,7 @@ export default async function OpportunityDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const opportunity = getOpportunityById(id);
+  const opportunity = staticOpportunities.find((o) => o.id === id);
   if (!opportunity) notFound();
 
   return (
@@ -49,17 +49,22 @@ export default async function OpportunityDetailPage({
             <p className="mt-1.5 text-[14px] text-ink-soft">{opportunity.organization}</p>
 
             <div className="mt-5 flex flex-wrap gap-4 text-[13px] text-ink-soft">
-               <span className="flex items-center gap-1.5">
+              <span className="flex items-center gap-1.5">
                 <Clock className="h-4 w-4" />
-                Дедлайн:{" "}
-                {opportunity.deadlineType === "rolling"
-                  ? opportunity.deadline
-                  : new Date(opportunity.deadline).toLocaleDateString("ru-RU", {
-                    day: "numeric",
-                    month: "long",
-                  })}
-                {" "}
-                <span className="text-ink">({getDeadlineLabel(opportunity.deadline, opportunity.deadlineType)})</span>
+                Дедлайн: {getDeadlineLabel(opportunity.deadline, opportunity.deadlineType)}
+              </span>
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                  getDeadlineStatus(opportunity.deadline, opportunity.deadlineType) === "open"
+                    ? "bg-green/10 text-green"
+                    : getDeadlineStatus(opportunity.deadline, opportunity.deadlineType) === "closing-soon"
+                      ? "bg-yellow/10 text-yellow"
+                      : getDeadlineStatus(opportunity.deadline, opportunity.deadlineType) === "closed"
+                        ? "bg-red/10 text-red"
+                        : "bg-ink/10 text-ink-soft"
+                }`}
+              >
+                {getDeadlineStatusLabel(getDeadlineStatus(opportunity.deadline, opportunity.deadlineType))}
               </span>
               <span className="flex items-center gap-1.5">
                 <MapPin className="h-4 w-4" /> {opportunity.location}

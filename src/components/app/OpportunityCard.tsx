@@ -1,7 +1,7 @@
 "use client";
 
 import { Opportunity } from "@/types";
-import { cn, getDeadlineLabel } from "@/lib/utils";
+import { cn, getDeadlineLabel, getDeadlineStatus, getDeadlineStatusLabel } from "@/lib/utils";
 import { Star, Clock, MapPin, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useSavedOpportunities } from "@/hooks/useSavedOpportunities";
@@ -82,10 +82,24 @@ export function OpportunityCard({ opportunity }: { opportunity: Opportunity }) {
 
       <div className={cn("relative flex items-center gap-3 text-[12px] font-medium", c.sub)}>
         <span className="flex items-center gap-1.5 rounded-full bg-black/5 px-2 py-1">
-          <Clock className="h-3.5 w-3.5" /> {getDeadlineLabel(opportunity.deadline, opportunity.deadlineType)}
+          <Clock className="h-3.5 w-3.5" /> {getDeadlineLabel(opportunity.deadline ?? undefined, opportunity.deadlineType)}
         </span>
         <span className="flex items-center gap-1.5 rounded-full bg-black/5 px-2 py-1">
           <MapPin className="h-3.5 w-3.5" /> {opportunity.location}
+        </span>
+        <span
+          className={cn(
+            "rounded-full px-2 py-0.5 text-[10px] font-medium",
+            getDeadlineStatus(opportunity.deadline ?? undefined, opportunity.deadlineType) === "open"
+              ? "bg-green/10 text-green"
+              : getDeadlineStatus(opportunity.deadline ?? undefined, opportunity.deadlineType) === "closing-soon"
+                ? "bg-yellow/10 text-yellow"
+                : getDeadlineStatus(opportunity.deadline ?? undefined, opportunity.deadlineType) === "closed"
+                  ? "bg-red/10 text-red"
+                  : "bg-ink/10 text-ink-soft"
+          )}
+        >
+          {getDeadlineStatusLabel(getDeadlineStatus(opportunity.deadline ?? undefined, opportunity.deadlineType))}
         </span>
       </div>
     </Link>

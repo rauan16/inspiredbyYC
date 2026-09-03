@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.auth import get_current_user
@@ -57,6 +58,18 @@ async def get_opportunity(
     return _row_to_opportunity(row)
 
 
+def _compute_status(deadline: str | None, deadline_type: str | None) -> str:
+    if not deadline or deadline_type == "rolling":
+        return "active"
+    try:
+        d = datetime.fromisoformat(deadline.replace("Z", "+00:00"))
+        if d < datetime.now(timezone.utc):
+            return "closed"
+        return "active"
+    except (ValueError, TypeError):
+        return "active"
+
+
 def _row_to_opportunity(row) -> OpportunityResponse:
     requirements = row["requirements"]
     if isinstance(requirements, str):
@@ -72,6 +85,10 @@ def _row_to_opportunity(row) -> OpportunityResponse:
         except (json.JSONDecodeError, TypeError):
             timeline = []
 
+    row_keys = set(row.keys()) if hasattr(row, "keys") else set()
+    deadline_type = row["deadline_type"] if "deadline_type" in row_keys else "date"
+    status = _compute_status(row["deadline"], deadline_type)
+
     return OpportunityResponse(
         id=row["id"],
         title=row["title"],
@@ -79,6 +96,7 @@ def _row_to_opportunity(row) -> OpportunityResponse:
         category=row["category"],
         category_label=row["category_label"],
         deadline=row["deadline"],
+        deadline_type=deadline_type,
         location=row["location"],
         format=row["format"],
         eligibility=row["eligibility"],
@@ -88,4 +106,5 @@ def _row_to_opportunity(row) -> OpportunityResponse:
         color=row["color"],
         website=row["website"],
         recommended=bool(row["recommended"]),
+        status=status,
     )

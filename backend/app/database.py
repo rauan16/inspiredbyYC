@@ -50,6 +50,7 @@ def init_db():
             category TEXT NOT NULL,
             category_label TEXT,
             deadline TEXT,
+            deadline_type TEXT DEFAULT 'date',
             location TEXT,
             format TEXT,
             eligibility TEXT,

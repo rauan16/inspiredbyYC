@@ -1,7 +1,7 @@
 -- 0003_seed_universities.sql
 -- Seed universities with requirements data only (analysis is computed dynamically on frontend)
 
-INSERT INTO universities (id, name, country, location, deadline, requirements, overview, analysis) VALUES
+INSERT INTO universities (id, name, country, location, deadline, requirements, overview, data) VALUES
 (
     'nu-astana',
     'Nazarbayev University',

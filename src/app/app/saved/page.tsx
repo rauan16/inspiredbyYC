@@ -20,8 +20,16 @@ export default function SavedPage() {
     );
     return [...list].sort((a, b) =>
       sort === "deadline"
-        ? (a.deadlineType === "rolling" ? Infinity : new Date(a.deadline).getTime()) -
-          (b.deadlineType === "rolling" ? Infinity : new Date(b.deadline).getTime())
+        ? (a.deadlineType === "rolling"
+            ? Infinity
+            : a.deadline
+              ? new Date(a.deadline).getTime()
+              : Infinity) -
+          (b.deadlineType === "rolling"
+            ? Infinity
+            : b.deadline
+              ? new Date(b.deadline).getTime()
+              : Infinity)
         : a.title.localeCompare(b.title)
     );
   }, [query, sort, displaySaved]);

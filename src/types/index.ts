@@ -176,7 +176,7 @@ export interface Student {
   bio: string;
   interests: string[];
   goals: string[];
-  portfolioStrength: number;
+  portfolioStrength?: number;
   avatarInitials: string;
   academicInfo?: AcademicInfo;
 }

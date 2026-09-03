@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { TopBar } from "@/components/app/TopBar";
 import { OpportunityCard } from "@/components/app/OpportunityCard";
-import { student } from "@/data/student";
 import { getAccount, StoredAccount } from "@/lib/account";
 import { getDeadlineLabel, isDeadlinePassed } from "@/lib/utils";
 import { Opportunity } from "@/types";
@@ -17,9 +16,9 @@ import { useSavedOpportunities } from "@/hooks/useSavedOpportunities";
 import { useOnlineStatus } from "@/hooks/useApi";
 
 export default function DashboardPage() {
-  const [account, setAccount] = useState<StoredAccount>(student);
+  const [account, setAccount] = useState<StoredAccount>(getAccount());
   const { profile } = useProfile();
-  const { opportunities } = useOpportunities();
+  const { opportunities, loading, error } = useOpportunities();
   const { savedIds } = useSavedOpportunities();
   const isOnline = useOnlineStatus();
 
@@ -35,9 +34,10 @@ export default function DashboardPage() {
       [...opportunities]
         .filter((o) => o.status === "active" && !isDeadlinePassed(o.deadline, o.deadlineType))
         .sort((a, b) => {
-          const aTime = a.deadlineType === "rolling" ? Infinity : new Date(a.deadline).getTime();
-          const bTime = b.deadlineType === "rolling" ? Infinity : new Date(b.deadline).getTime();
-          return aTime - bTime;
+          if (a.deadlineType === "rolling") return b.deadlineType === "rolling" ? 0 : 1;
+          if (b.deadlineType === "rolling") return -1;
+          if (!a.deadline || !b.deadline) return 0;
+          return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
         })
         .slice(0, 4),
     [opportunities]
@@ -69,11 +69,15 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            <div className="grid grid-cols-3 gap-2.5 sm:min-w-[320px]">
-              <div className="rounded-2xl border border-line/80 bg-white/70 p-3 text-left shadow-[0_10px_22px_rgba(41,37,34,0.04)]">
-                <p className="text-[10px] uppercase tracking-[0.14em] text-ink-soft">Возможности</p>
-                <p className="mt-2 font-display text-[22px] font-semibold tracking-[-0.06em]">{opportunities.filter((o) => o.status === "active").length}</p>
-              </div>
+             <div className="grid grid-cols-3 gap-2.5 sm:min-w-[320px]">
+               <div className="rounded-2xl border border-line/80 bg-white/70 p-3 text-left shadow-[0_10px_22px_rgba(41,37,34,0.04)]">
+                 <p className="text-[10px] uppercase tracking-[0.14em] text-ink-soft">Возможности</p>
+                 {error ? (
+                   <p className="mt-2 font-display text-[18px] font-semibold text-red">—</p>
+                 ) : (
+                   <p className="mt-2 font-display text-[22px] font-semibold tracking-[-0.06em]">{opportunities.filter((o) => o.status === "active").length}</p>
+                 )}
+               </div>
               <div className="rounded-2xl border border-line/80 bg-white/70 p-3 text-left shadow-[0_10px_22px_rgba(41,37,34,0.04)]">
                 <p className="text-[10px] uppercase tracking-[0.14em] text-ink-soft">Сохранено</p>
                 <p className="mt-2 font-display text-[22px] font-semibold tracking-[-0.06em]">{saved.length}</p>
@@ -81,7 +85,9 @@ export default function DashboardPage() {
               <div className="rounded-2xl border border-line/80 bg-white/70 p-3 text-left shadow-[0_10px_22px_rgba(41,37,34,0.04)]">
                 <p className="text-[10px] uppercase tracking-[0.14em] text-ink-soft">Дедлайн</p>
                 <p className="mt-2 font-display text-[18px] font-semibold tracking-[-0.06em]">
-                  {deadlines[0] ? getDeadlineLabel(deadlines[0].deadline, deadlines[0].deadlineType) : "—"}
+                  {deadlines[0]
+                    ? getDeadlineLabel(deadlines[0].deadline, deadlines[0].deadlineType)
+                    : "Нет дедлайнов"}
                 </p>
               </div>
             </div>
@@ -122,7 +128,7 @@ export default function DashboardPage() {
                   </div>
                    <Badge className="shrink-0">
                     <Clock className="h-3 w-3" />
-                    {getDeadlineLabel(o.deadline, o.deadlineType)}
+                    {getDeadlineLabel(o.deadline ?? undefined, o.deadlineType)}
                   </Badge>
                 </li>
               ))}
@@ -134,16 +140,18 @@ export default function DashboardPage() {
             <div className="mt-4 flex items-center gap-4">
               <div className="relative flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-[5px] border-red shadow-[0_12px_24px_rgba(226,56,43,0.18)]">
                 <span className="font-display text-[15px] font-bold">
-                  {profile.portfolioStrength ?? account.portfolioStrength ?? 0}%
+                  {profile.portfolioStrength ?? 0}%
                 </span>
               </div>
-              <p className="text-[12.5px] leading-relaxed text-ink-soft">
-                Добавь один проект и раздел «О себе», чтобы усилить профиль.
-              </p>
+              <div className="flex-1">
+                <p className="text-[12.5px] leading-relaxed text-ink-soft">
+                  Доля заполненных секций портфолио — это не оценка качества или шансов на поступление.
+                </p>
+                <ButtonLink href="/app/portfolio" variant="secondary" size="sm" className="mt-2">
+                  Дополнить портфолио
+                </ButtonLink>
+              </div>
             </div>
-            <ButtonLink href="/app/portfolio" variant="secondary" size="md" className="mt-4 w-full">
-              Открыть портфолио <ArrowRight className="h-3.5 w-3.5" />
-            </ButtonLink>
           </section>
         </div>
 

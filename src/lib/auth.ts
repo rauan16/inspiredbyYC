@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, getToken, setToken } from "@/lib/api";
 import { getAccount, saveAccount, StoredAccount } from "@/lib/account";
-import { getPendingActions, clearQueue, SyncAction } from "@/lib/sync";
+import { getPendingActions, clearQueue } from "@/lib/sync";
 
 export interface AuthState {
   isAuthenticated: boolean;

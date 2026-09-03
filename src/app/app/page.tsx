@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { TopBar } from "@/components/app/TopBar";
 import { OpportunityCard } from "@/components/app/OpportunityCard";
 import { student } from "@/data/student";
 import { getAccount, StoredAccount } from "@/lib/account";
+import { getDeadlineLabel, isDeadlinePassed } from "@/lib/utils";
 import { Opportunity } from "@/types";
 import Link from "next/link";
 import { ArrowRight, Clock, Sparkles } from "lucide-react";
@@ -26,10 +27,21 @@ export default function DashboardPage() {
     setAccount(getAccount());
   }, []);
 
-  const recommended = opportunities.filter((o) => o.recommended).slice(0, 3);
-  const deadlines = [...opportunities]
-    .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime())
-    .slice(0, 4);
+  const recommended = opportunities
+    .filter((o) => o.recommended && o.status === "active")
+    .slice(0, 3);
+  const deadlines = useMemo(
+    () =>
+      [...opportunities]
+        .filter((o) => o.status === "active" && !isDeadlinePassed(o.deadline, o.deadlineType))
+        .sort((a, b) => {
+          const aTime = a.deadlineType === "rolling" ? Infinity : new Date(a.deadline).getTime();
+          const bTime = b.deadlineType === "rolling" ? Infinity : new Date(b.deadline).getTime();
+          return aTime - bTime;
+        })
+        .slice(0, 4),
+    [opportunities]
+  );
   const saved = opportunities.filter((o) => savedIds.includes(o.id)).slice(0, 2);
 
   return (
@@ -60,7 +72,7 @@ export default function DashboardPage() {
             <div className="grid grid-cols-3 gap-2.5 sm:min-w-[320px]">
               <div className="rounded-2xl border border-line/80 bg-white/70 p-3 text-left shadow-[0_10px_22px_rgba(41,37,34,0.04)]">
                 <p className="text-[10px] uppercase tracking-[0.14em] text-ink-soft">Возможности</p>
-                <p className="mt-2 font-display text-[22px] font-semibold tracking-[-0.06em]">{recommended.length + 2}</p>
+                <p className="mt-2 font-display text-[22px] font-semibold tracking-[-0.06em]">{opportunities.filter((o) => o.status === "active").length}</p>
               </div>
               <div className="rounded-2xl border border-line/80 bg-white/70 p-3 text-left shadow-[0_10px_22px_rgba(41,37,34,0.04)]">
                 <p className="text-[10px] uppercase tracking-[0.14em] text-ink-soft">Сохранено</p>
@@ -69,7 +81,7 @@ export default function DashboardPage() {
               <div className="rounded-2xl border border-line/80 bg-white/70 p-3 text-left shadow-[0_10px_22px_rgba(41,37,34,0.04)]">
                 <p className="text-[10px] uppercase tracking-[0.14em] text-ink-soft">Дедлайн</p>
                 <p className="mt-2 font-display text-[18px] font-semibold tracking-[-0.06em]">
-                  {deadlines[0] ? new Date(deadlines[0].deadline).toLocaleDateString("ru-RU", { day: "numeric", month: "short" }) : "—"}
+                  {deadlines[0] ? getDeadlineLabel(deadlines[0].deadline, deadlines[0].deadlineType) : "—"}
                 </p>
               </div>
             </div>
@@ -108,12 +120,9 @@ export default function DashboardPage() {
                     </Link>
                     <p className="text-[11.5px] text-ink-soft">{o.organization}</p>
                   </div>
-                  <Badge className="shrink-0">
+                   <Badge className="shrink-0">
                     <Clock className="h-3 w-3" />
-                    {new Date(o.deadline).toLocaleDateString("ru-RU", {
-                      day: "numeric",
-                      month: "short",
-                    })}
+                    {getDeadlineLabel(o.deadline, o.deadlineType)}
                   </Badge>
                 </li>
               ))}
@@ -139,7 +148,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">
-          <MentorTip opportunities={opportunities} messages={[]} account={account} />
+          <MentorTip opportunities={opportunities} messages={[]} />
         </div>
 
         {saved.length > 0 && (
@@ -165,7 +174,7 @@ export default function DashboardPage() {
   );
 }
 
-function MentorTip({ opportunities, account }: { opportunities: Opportunity[]; messages: unknown[]; account: StoredAccount }) {
+function MentorTip({ opportunities }: { opportunities: Opportunity[]; messages: unknown[] }) {
   const lastMentorTip = opportunities.find((o) => o.recommended && o.saved);
 
   if (!lastMentorTip) return null;

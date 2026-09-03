@@ -140,21 +140,47 @@ export default function MentorPage() {
             </div>
           </div>
 
-          <div className="mt-5 space-y-4">
-            <div>
-              <p className="text-[11px] font-medium uppercase tracking-wide text-ink-soft">
-                Портфолио
-              </p>
-              <div className="mt-1.5 flex items-center gap-2">
-                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-paper-dim">
-                  <div
-                    className="h-full rounded-full bg-red"
-                    style={{ width: `${profile.portfolioStrength ?? account.portfolioStrength ?? 0}%` }}
-                  />
-                </div>
-                <span className="text-[12.5px] font-medium">{profile.portfolioStrength ?? account.portfolioStrength ?? 0}%</span>
-              </div>
-            </div>
+           <div className="mt-5 space-y-4">
+             <div>
+               <p className="text-[11px] font-medium uppercase tracking-wide text-ink-soft">
+                 Портфолио
+               </p>
+               <div className="mt-1.5 flex items-center gap-2">
+                 <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-paper-dim">
+                   <div
+                     className="h-full rounded-full bg-red"
+                     style={{ width: `${profile.portfolioStrength ?? account.portfolioStrength ?? 0}%` }}
+                   />
+                 </div>
+                 <span className="text-[12.5px] font-medium">{profile.portfolioStrength ?? account.portfolioStrength ?? 0}%</span>
+               </div>
+             </div>
+
+             {(profile.academicInfo ?? account.academicInfo) && (
+               <div>
+                 <p className="text-[11px] font-medium uppercase tracking-wide text-ink-soft">Академические данные</p>
+                 <div className="mt-1.5 space-y-0.5 text-[12.5px]">
+                   {(profile.academicInfo ?? account.academicInfo)?.school && (
+                     <p><span className="text-ink-soft">Школа:</span> {(profile.academicInfo ?? account.academicInfo)!.school}</p>
+                   )}
+                   {(profile.academicInfo ?? account.academicInfo)?.intendedMajor && (
+                     <p><span className="text-ink-soft">Major:</span> {(profile.academicInfo ?? account.academicInfo)!.intendedMajor}</p>
+                   )}
+                   {(profile.academicInfo ?? account.academicInfo)?.gpa && (
+                     <p><span className="text-ink-soft">GPA:</span> {(profile.academicInfo ?? account.academicInfo)!.gpa} / {(profile.academicInfo ?? account.academicInfo)!.gpaScale}</p>
+                   )}
+                   {(profile.academicInfo ?? account.academicInfo)?.sat && (
+                     <p><span className="text-ink-soft">SAT:</span> {(profile.academicInfo ?? account.academicInfo)!.sat}</p>
+                   )}
+                   {(profile.academicInfo ?? account.academicInfo)?.ielts && (
+                     <p><span className="text-ink-soft">IELTS:</span> {(profile.academicInfo ?? account.academicInfo)!.ielts}</p>
+                   )}
+                   {(profile.academicInfo ?? account.academicInfo)?.toefl && (
+                     <p><span className="text-ink-soft">TOEFL:</span> {(profile.academicInfo ?? account.academicInfo)!.toefl}</p>
+                   )}
+                 </div>
+               </div>
+             )}
 
             <div>
               <p className="text-[11px] font-medium uppercase tracking-wide text-ink-soft">Цели</p>

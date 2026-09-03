@@ -1,5 +1,18 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Any
+
+
+class AcademicInfo(BaseModel):
+    school: Optional[str] = None
+    curriculum: Optional[str] = None
+    gpa: Optional[float] = None
+    gpaScale: Optional[str] = None
+    sat: Optional[float] = None
+    act: Optional[float] = None
+    ielts: Optional[float] = None
+    toefl: Optional[float] = None
+    intendedMajor: Optional[str] = None
+    graduationYear: Optional[str] = None
 
 
 class ProfileResponse(BaseModel):
@@ -13,6 +26,7 @@ class ProfileResponse(BaseModel):
     goals: Optional[list[str]] = None
     portfolio_strength: Optional[int] = None
     avatar_initials: Optional[str] = None
+    academic_info: Optional[Any] = None
 
 
 class ProfileUpdate(BaseModel):
@@ -24,3 +38,4 @@ class ProfileUpdate(BaseModel):
     goals: Optional[list[str]] = None
     portfolio_strength: Optional[int] = None
     avatar_initials: Optional[str] = None
+    academic_info: Optional[Any] = None

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { TopBar } from "@/components/app/TopBar";
 import { OpportunityCard } from "@/components/app/OpportunityCard";
 import { opportunities as staticOpportunities } from "@/data/opportunities";
@@ -20,7 +20,8 @@ export default function SavedPage() {
     );
     return [...list].sort((a, b) =>
       sort === "deadline"
-        ? new Date(a.deadline).getTime() - new Date(b.deadline).getTime()
+        ? (a.deadlineType === "rolling" ? Infinity : new Date(a.deadline).getTime()) -
+          (b.deadlineType === "rolling" ? Infinity : new Date(b.deadline).getTime())
         : a.title.localeCompare(b.title)
     );
   }, [query, sort, displaySaved]);

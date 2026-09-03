@@ -1,5 +1,5 @@
 -- 0003_seed_universities.sql
--- Seed universities matching the frontend mock data
+-- Seed universities with requirements data only (analysis is computed dynamically on frontend)
 
 INSERT INTO universities (id, name, country, location, deadline, requirements, overview, analysis) VALUES
 (
@@ -10,14 +10,7 @@ INSERT INTO universities (id, name, country, location, deadline, requirements, o
     '1 февраля 2027',
     ARRAY['IELTS от 6.0 или эквивалент', 'ЕНТ или SAT', 'Портфолио внеучебной деятельности', 'Два рекомендательных письма'],
     'Ведущий исследовательский университет Казахстана с преподаванием на английском языке и грантовой системой финансирования.',
-    '{
-        "profileMatch": 82,
-        "academicFit": "Сильное",
-        "applicationStrength": "Конкурентоспособно",
-        "strengths": ["Сильные результаты по профильным предметам", "Опыт участия в олимпиадах уровня STEM"],
-        "gaps": ["Нет подтверждённого уровня английского (IELTS/TOEFL)"],
-        "recommendations": ["Сдать IELTS в ближайшие 3 месяца", "Добавить в портфолио один долгосрочный проект с измеримым результатом"]
-    }'::jsonb
+    '{}'::jsonb
 ),
 (
     'kbtu',
@@ -27,14 +20,7 @@ INSERT INTO universities (id, name, country, location, deadline, requirements, o
     '15 июня 2027',
     ARRAY['ЕНТ', 'Портфолио технических проектов (для IT-направлений)'],
     'Казахстанско-Британский технический университет — сильная инженерная и IT-программа с партнёрствами с зарубежными вузами.',
-    '{
-        "profileMatch": 91,
-        "academicFit": "Сильное",
-        "applicationStrength": "Отличный уровень",
-        "strengths": ["Опыт хакатонов", "Проекты с открытым кодом в портфолио"],
-        "gaps": [],
-        "recommendations": ["Подготовить сопроводительное портфолио для приёмной комиссии"]
-    }'::jsonb
+    '{}'::jsonb
 ),
 (
     'hse-moscow',
@@ -44,14 +30,7 @@ INSERT INTO universities (id, name, country, location, deadline, requirements, o
     '20 июля 2027',
     ARRAY['Вступительные экзамены или олимпиадные дипломы', 'Эссе'],
     'Один из крупнейших исследовательских университетов региона с широким выбором социальных и экономических направлений.',
-    '{
-        "profileMatch": 68,
-        "academicFit": "Хорошее",
-        "applicationStrength": "Развивается",
-        "strengths": ["Хорошие оценки по обществознанию и экономике"],
-        "gaps": ["Недостаточно олимпиадного опыта по профильному предмету", "Нет опыта исследовательской работы"],
-        "recommendations": ["Принять участие в одной профильной олимпиаде в этом учебном году", "Рассмотреть исследовательскую стажировку из Opportunity Hub"]
-    }'::jsonb
+    '{}'::jsonb
 ),
 (
     'kaist',
@@ -61,13 +40,6 @@ INSERT INTO universities (id, name, country, location, deadline, requirements, o
     '30 сентября 2026',
     ARRAY['TOEFL/IELTS', 'SAT Subject или эквивалент', 'Портфолио проектов'],
     'Один из ведущих технических университетов Азии с полным покрытием стипендией для международных студентов.',
-    '{
-        "profileMatch": 54,
-        "academicFit": "Среднее",
-        "applicationStrength": "Начальный уровень",
-        "strengths": ["Интерес и базовые проекты в области инженерии"],
-        "gaps": ["Нет международных олимпиадных результатов", "Нет подтверждённого языкового сертификата", "Портфолио пока небольшое"],
-        "recommendations": ["Начать подготовку к TOEFL уже в этом семестре", "Добавить минимум два технических проекта в портфолио за год"]
-    }'::jsonb
+    '{}'::jsonb
 )
 ON CONFLICT (id) DO NOTHING;

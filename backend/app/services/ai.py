@@ -51,7 +51,18 @@ SYSTEM_PROMPT = """Ты — ULIE, ИИ-наставник для школьни�
 
 Не используй HTML, таблицы (только если действительно улучшают понимание), или чрезмерное форматирование.
 
-Если у студента есть цели, интересы или портфолио, учитывай их в ответах."""
+Если у студента есть цели, интересы или портфолио, учитывай их в ответах.
+
+ВАЖНЫЕ ПРАВИЛА — НИКОГДА не нарушай:
+1. Никогда не выдумывай факты, цифры, сертификаты, дипломы, баллы SAT/IELTS/GPA или другие данные, которых нет в профиле студента.
+2. Никогда не придумывай требования университетов, acceptance rate, средние баллы или другие статистические данные, если они не переданы в контексте.
+3. Никогда не выдавай ИИ-оценку или процент поступления как проверенную статистику.
+4. Если данных недостаточно, скажи прямо: «Недостаточно данных для оценки» или «Этого не указано в твоём профиле».
+5. Никогда не придумывай возможности, конкурсы, дедлайны или организации, которые не переданы в контексте.
+6. Если профиль пустой — попроси добавить информацию в портфолио и профиль.
+7. Опираться ТОЛЬКО на переданные данные о профиле и портфолие. Никаких «наведённых» предположений.
+8. Если спрашивают о шансах поступления — объясняй: насколько профиль соответствует требованиям, какие есть strengths и gaps, что нужно улучшить. Никогда не выдавай процент как «chance of admission».
+9. Никогда не упоминай конкретные даты дедлайнов, если они не переданы в контексте."""
 
 
 async def get_mentor_response(
@@ -59,22 +70,23 @@ async def get_mentor_response(
     conversation_history: list[dict],
     profile: dict | None = None,
     portfolio: list[dict] | None = None,
+    universities: list[dict] | None = None,
 ) -> str:
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
 
-    if profile:
-        profile_context = _format_profile_context(profile)
+    if profile or portfolio or universities:
+        context_parts = []
+        if profile:
+            context_parts.append(_format_profile_context(profile))
         if portfolio:
-            portfolio_context = _format_portfolio_context(portfolio)
-            messages.append({
-                "role": "system",
-                "content": f"Контекст студента:\n{profile_context}\n\nПортфолио студента:\n{portfolio_context}",
-            })
-        else:
-            messages.append({
-                "role": "system",
-                "content": f"Контекст студента:\n{profile_context}",
-            })
+            context_parts.append(_format_portfolio_context(portfolio))
+        if universities:
+            context_parts.append(_format_universities_context(universities))
+        messages.append({
+            "role": "system",
+            "content": f"""Контекст студента:
+{chr(10).join(context_parts)}""",
+        })
 
     for msg in conversation_history[-20:]:
         role = "assistant" if msg.get("role") == "mentor" else "user"
@@ -183,7 +195,35 @@ def _format_profile_context(profile: dict) -> str:
         parts.append(f"Интересы: {', '.join(profile['interests'])}")
     if profile.get("goals"):
         parts.append(f"Цели: {', '.join(profile['goals'])}")
-    return "\n".join(parts) if parts else "Профиль не заполнен"
+
+    academic = profile.get("academicInfo")
+    if academic:
+        parts.append("Академическая информация:")
+        if academic.get("school"):
+            parts.append(f"  Школа: {academic['school']}")
+        if academic.get("curriculum"):
+            parts.append(f"  Курriculum: {academic['curriculum']}")
+        if academic.get("intendedMajor"):
+            parts.append(f"  Целевой major: {academic['intendedMajor']}")
+        if academic.get("gpa"):
+            parts.append(f"  GPA: {academic['gpa']}")
+        if academic.get("sat"):
+            parts.append(f"  SAT: {academic['sat']}")
+        if academic.get("act"):
+            parts.append(f"  ACT: {academic['act']}")
+        if academic.get("ielts"):
+            parts.append(f"  IELTS: {academic['ielts']}")
+        if academic.get("toefl"):
+            parts.append(f"  TOEFL: {academic['toefl']}")
+        if academic.get("graduationYear"):
+            parts.append(f"  Год выпуска: {academic['graduationYear']}")
+
+    if not profile.get("academicInfo"):
+        parts.append("Академическая информация: не указана")
+
+    if not parts:
+        return "Профиль не заполнен"
+    return "\n".join(parts)
 
 
 def _format_portfolio_context(portfolio: list[dict]) -> str:
@@ -194,5 +234,25 @@ def _format_portfolio_context(portfolio: list[dict]) -> str:
         line = f"- [{item.get('section', '?')}] {item.get('title', '')}"
         if item.get("date"):
             line += f" ({item['date']})"
+        if item.get("description"):
+            line += f" — {item['description']}"
+        lines.append(line)
+    return "\n".join(lines)
+
+
+def _format_universities_context(universities: list[dict]) -> str:
+    if not universities:
+        return "Университеты: не указаны"
+    lines = ["Университеты и их требования:"]
+    for uni in universities:
+        line = f"  - {uni.get('name', '?')}: "
+        if uni.get("languageRequirements"):
+            line += f"язык={uni['languageRequirements']}; "
+        if uni.get("satRequirements"):
+            line += f"SAT/ACT={uni['satRequirements']}; "
+        if uni.get("gpaRequirements"):
+            line += f"GPA={uni['gpaRequirements']}; "
+        if uni.get("majors"):
+            line += f"majors={', '.join(uni['majors'])}"
         lines.append(line)
     return "\n".join(lines)

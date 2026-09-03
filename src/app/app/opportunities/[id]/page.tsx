@@ -2,7 +2,8 @@ import { TopBar } from "@/components/app/TopBar";
 import { getOpportunityById, opportunities } from "@/data/opportunities";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Clock, ExternalLink, MapPin, Star, Users } from "lucide-react";
+import { ArrowLeft, Clock, ExternalLink, MapPin, ShieldCheck, Users } from "lucide-react";
+import { getDeadlineLabel } from "@/lib/utils";
 
 export function generateStaticParams() {
   return opportunities.map((o) => ({ id: o.id }));
@@ -48,19 +49,38 @@ export default async function OpportunityDetailPage({
             <p className="mt-1.5 text-[14px] text-ink-soft">{opportunity.organization}</p>
 
             <div className="mt-5 flex flex-wrap gap-4 text-[13px] text-ink-soft">
-              <span className="flex items-center gap-1.5">
+               <span className="flex items-center gap-1.5">
                 <Clock className="h-4 w-4" />
                 Дедлайн:{" "}
-                {new Date(opportunity.deadline).toLocaleDateString("ru-RU", {
-                  day: "numeric",
-                  month: "long",
-                })}
+                {opportunity.deadlineType === "rolling"
+                  ? opportunity.deadline
+                  : new Date(opportunity.deadline).toLocaleDateString("ru-RU", {
+                    day: "numeric",
+                    month: "long",
+                  })}
+                {" "}
+                <span className="text-ink">({getDeadlineLabel(opportunity.deadline, opportunity.deadlineType)})</span>
               </span>
               <span className="flex items-center gap-1.5">
                 <MapPin className="h-4 w-4" /> {opportunity.location}
               </span>
               <span className="flex items-center gap-1.5">
                 <Users className="h-4 w-4" /> {opportunity.eligibility}
+              </span>
+              {opportunity.ageGrade && (
+                <span className="flex items-center gap-1.5">
+                  Возраст/класс: {opportunity.ageGrade}
+                </span>
+              )}
+              <span className="flex items-center gap-1.5 rounded-full bg-green-dim px-2.5 py-1 text-green">
+                <ShieldCheck className="h-4 w-4" />
+                {opportunity.verificationStatus === "verified"
+                  ? "Проверено"
+                  : opportunity.verificationStatus === "partially_verified"
+                    ? "Частично проверено"
+                    : opportunity.verificationStatus === "expired"
+                      ? "Завершено"
+                      : "Не проверено"}
               </span>
             </div>
 
@@ -97,20 +117,39 @@ export default async function OpportunityDetailPage({
           </div>
 
           <div className="h-fit space-y-4 rounded-[var(--radius-card)] border border-line bg-white p-5">
-            <button className="flex w-full items-center justify-center gap-2 rounded-full bg-ink py-3 text-[13.5px] font-medium text-paper hover:bg-red">
-              <Star className="h-4 w-4" />
-              {opportunity.saved ? "Сохранено" : "Сохранить"}
-            </button>
             <a
-              href={opportunity.website}
+              href={opportunity.applicationUrl || opportunity.website}
               target="_blank"
               rel="noreferrer"
-              className="flex w-full items-center justify-center gap-2 rounded-full border border-line py-3 text-[13.5px] font-medium hover:border-ink"
+              className="flex w-full items-center justify-center gap-2 rounded-full bg-ink py-3 text-[13.5px] font-medium text-paper hover:bg-red"
             >
-              Официальный сайт <ExternalLink className="h-3.5 w-3.5" />
+              Открыть официальную страницу <ExternalLink className="h-3.5 w-3.5" />
             </a>
             <div className="border-t border-line pt-4 text-[12.5px] leading-relaxed text-ink-soft">
-              Формат: <span className="font-medium text-ink">{opportunity.format}</span>
+              <p className="mb-1">Формат: <span className="font-medium text-ink">{opportunity.format}</span></p>
+              {opportunity.ageGrade && (
+                <p className="mb-1">Возраст/класс: <span className="font-medium text-ink">{opportunity.ageGrade}</span></p>
+              )}
+              <p>Статус: <span className="font-medium text-ink">{opportunity.status}</span></p>
+              <p className="mt-2">Последняя проверка: <span className="font-medium text-ink">{opportunity.lastVerifiedAt}</span></p>
+              {opportunity.officialSourceUrl && (
+                <p className="mt-1">
+                  Источник:{" "}
+                  <a href={opportunity.officialSourceUrl} target="_blank" rel="noreferrer" className="text-blue hover:underline">
+                    {opportunity.officialSourceUrl}
+                  </a>
+                </p>
+              )}
+            </div>
+            <div className="border-t border-line pt-4">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-ink-soft mb-2">Теги</p>
+              <div className="flex flex-wrap gap-1.5">
+                {opportunity.tags.map((tag) => (
+                  <span key={tag} className="rounded-full bg-paper-dim px-2.5 py-1 text-[11px] font-medium text-ink">
+                    {tag}
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
         </div>

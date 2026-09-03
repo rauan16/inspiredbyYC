@@ -9,6 +9,12 @@ export const student: Student = {
   goals: ["Поступление в университет", "Портфолио проектов", "Волонтёрство"],
   portfolioStrength: 78,
   avatarInitials: "ПБ",
+  academicInfo: {
+    school: "Специализированная школа №166",
+    curriculum: "Kazakhstan National",
+    intendedMajor: "Computer Science",
+    graduationYear: "2027",
+  },
 };
 
 export const portfolioEntries: PortfolioEntry[] = [

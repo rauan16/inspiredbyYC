@@ -1,5 +1,5 @@
 import { student } from "@/data/student";
-import { MentorMessage, PortfolioEntry, Student } from "@/types";
+import { AcademicInfo, MentorMessage, PortfolioEntry, Student } from "@/types";
 
 const ACCOUNT_KEY = "ulys-account";
 
@@ -8,6 +8,7 @@ export type StoredAccount = Student & {
   portfolioEntries?: PortfolioEntry[];
   mentorMessages?: MentorMessage[];
   savedOpportunityIds?: string[];
+  academicInfo?: AcademicInfo;
 };
 
 export function getAccount(): StoredAccount {

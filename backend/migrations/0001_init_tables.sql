@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS profiles (
     goals TEXT[] DEFAULT '{}',
     portfolio_strength INTEGER DEFAULT 0,
     avatar_initials TEXT,
+    academic_info JSONB DEFAULT '{}',
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -79,7 +80,7 @@ CREATE TABLE IF NOT EXISTS universities (
     deadline TEXT,
     requirements TEXT[] DEFAULT '{}',
     overview TEXT,
-    analysis JSONB NOT NULL DEFAULT '{}',
+    data JSONB DEFAULT '{}',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

@@ -37,6 +37,7 @@ def init_db():
             goals TEXT DEFAULT '[]',
             portfolio_strength INTEGER DEFAULT 0,
             avatar_initials TEXT,
+            academic_info TEXT DEFAULT '{}',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (id) REFERENCES users(id) ON DELETE CASCADE
@@ -103,7 +104,7 @@ def init_db():
             deadline TEXT,
             requirements TEXT DEFAULT '[]',
             overview TEXT,
-            analysis TEXT DEFAULT '{}',
+            data TEXT DEFAULT '{}',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
     """)
@@ -145,7 +146,7 @@ def seed_opportunities():
 
 
 def seed_universities():
-    """Seed universities if table is empty."""
+    """Seed universities if table is empty. Full data matches frontend src/data/universities.ts."""
     conn = get_db()
     cursor = conn.cursor()
 
@@ -154,17 +155,26 @@ def seed_universities():
         conn.close()
         return
 
-    universities = [
-        ('nu-astana', 'Nazarbayev University', 'Казахстан', 'Астана', '1 февраля 2027', '["IELTS от 6.0 или эквивалент", "ЕНТ или SAT", "Портфолио внеучебной деятельности", "Два рекомендательных письма"]', 'Ведущий исследовательский университет Казахстана с преподаванием на английском языке и грантовой системой финансирования.', '{"profileMatch": 82, "academicFit": "Сильное", "applicationStrength": "Конкурентоспособно", "strengths": ["Сильные результаты по профильным предметам", "Опыт участия в олимпиадах уровня STEM"], "gaps": ["Нет подтверждённого уровня английского (IELTS/TOEFL)"], "recommendations": ["Сдать IELTS в ближайшие 3 месяца", "Добавить в портфолио один долгосрочный проект с измеримым результатом"]}'),
-        ('kbtu', 'KBTU', 'Казахстан', 'Алматы', '15 июня 2027', '["ЕНТ", "Портфолио технических проектов (для IT-направлений)"]', 'Казахстанско-Британский технический университет — сильная инженерная и IT-программа с партнёрствами с зарубежными вузами.', '{"profileMatch": 91, "academicFit": "Сильное", "applicationStrength": "Отличный уровень", "strengths": ["Опыт хакатонов", "Проекты с открытым кодом в портфолио"], "gaps": [], "recommendations": ["Подготовить сопроводительное портфолио для приёмной комиссии"]}'),
-        ('hse-moscow', 'HSE University', 'Россия', 'Москва', '20 июля 2027', '["Вступительные экзамены или олимпиадные дипломы", "Эссе"]', 'Один из крупнейших исследовательских университетов региона с широким выбором социальных и экономических направлений.', '{"profileMatch": 68, "academicFit": "Хорошее", "applicationStrength": "Развивается", "strengths": ["Хорошие оценки по обществознанию и экономике"], "gaps": ["Недостаточно олимпиадного опыта по профильному предмету", "Нет опыта исследовательской работы"], "recommendations": ["Принять участие в одной профильной олимпиаде в этом учебном году", "Рассмотреть исследовательскую стажировку из Opportunity Hub"]}'),
-        ('kaist', 'KAIST', 'Южная Корея', 'Тэджон', '30 сентября 2026', '["TOEFL/IELTS", "SAT Subject или эквивалент", "Портфолио проектов"]', 'Один из ведущих технических университетов Азии с полным покрытием стипендией для международных студентов.', '{"profileMatch": 54, "academicFit": "Среднее", "applicationStrength": "Начальный уровень", "strengths": ["Интерес и базовые проекты в области инженерии"], "gaps": ["Нет международных олимпиадных результатов", "Нет подтверждённого языкового сертификата", "Портфолио пока небольшое"], "recommendations": ["Начать подготовку к TOEFL уже в этом семестре", "Добавить минимум два технических проекта в портфолио за год"]}'),
-    ]
+    import json as _json
+    from app.data.universities import universities as uni_data
+
+    rows = []
+    for u in uni_data:
+        rows.append((
+            u["id"],
+            u["name"],
+            u["country"],
+            u.get("city") or u.get("location", ""),
+            u["deadline"],
+            _json.dumps(u["requirements"]),
+            u["overview"],
+            _json.dumps(u),
+        ))
 
     cursor.executemany("""
-        INSERT OR IGNORE INTO universities (id, name, country, location, deadline, requirements, overview, analysis)
+        INSERT OR IGNORE INTO universities (id, name, country, location, deadline, requirements, overview, data)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, universities)
+    """, rows)
 
     conn.commit()
     conn.close()

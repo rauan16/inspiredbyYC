@@ -70,6 +70,17 @@ async def send_message(
             except (json.JSONDecodeError, TypeError):
                 goals = []
 
+        academic_info = None
+        if "academic_info" in profile_row.keys():
+            raw_academic = profile_row["academic_info"]
+            if isinstance(raw_academic, str):
+                try:
+                    academic_info = json.loads(raw_academic)
+                except (json.JSONDecodeError, TypeError):
+                    academic_info = None
+            elif raw_academic is not None:
+                academic_info = raw_academic
+
         profile = {
             "name": profile_row["name"],
             "grade": profile_row["grade"],
@@ -77,17 +88,30 @@ async def send_message(
             "bio": profile_row["bio"],
             "interests": interests or [],
             "goals": goals or [],
+            "academicInfo": academic_info,
         }
 
-    # Get portfolio
+    # Get portfolio (include description for richer context)
     portfolio_rows = conn.execute(
-        "SELECT section, title, date FROM portfolio_items WHERE user_id = ? ORDER BY sort_order ASC",
+        "SELECT section, title, date, description FROM portfolio_items WHERE user_id = ? ORDER BY sort_order ASC",
         (user_id,),
     ).fetchall()
     portfolio = [
-        {"section": row["section"], "title": row["title"], "date": row["date"]}
+        {"section": row["section"], "title": row["title"], "date": row["date"], "description": row["description"]}
         for row in portfolio_rows
     ]
+
+    # Get universities data for reference
+    uni_rows = conn.execute(
+        "SELECT data FROM universities ORDER BY name"
+    ).fetchall()
+    universities = []
+    for row in uni_rows:
+        if row["data"]:
+            try:
+                universities.append(json.loads(row["data"]))
+            except (json.JSONDecodeError, TypeError):
+                pass
 
     conn.close()
 
@@ -98,6 +122,7 @@ async def send_message(
             conversation_history=conversation_history,
             profile=profile,
             portfolio=portfolio,
+            universities=universities,
         )
     except HTTPException:
         raise

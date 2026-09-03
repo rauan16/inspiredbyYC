@@ -48,6 +48,8 @@ async def update_profile(
     for key, value in update_data.items():
         if key in ("interests", "goals") and isinstance(value, list):
             value = json.dumps(value)
+        if key == "academic_info" and isinstance(value, (dict, list)):
+            value = json.dumps(value)
         fields.append(f"{key} = ?")
         values.append(value)
 
@@ -79,6 +81,13 @@ def _row_to_profile(row) -> ProfileResponse:
         except (json.JSONDecodeError, TypeError):
             goals = []
 
+    academic_info = row["academic_info"] if "academic_info" in row.keys() else None
+    if isinstance(academic_info, str):
+        try:
+            academic_info = json.loads(academic_info)
+        except (json.JSONDecodeError, TypeError):
+            academic_info = None
+
     return ProfileResponse(
         id=row["id"],
         email=row["email"],
@@ -90,4 +99,5 @@ def _row_to_profile(row) -> ProfileResponse:
         goals=goals or [],
         portfolio_strength=row["portfolio_strength"] or 0,
         avatar_initials=row["avatar_initials"],
+        academic_info=academic_info,
     )

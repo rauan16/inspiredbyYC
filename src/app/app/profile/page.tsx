@@ -56,8 +56,7 @@ export default function ProfilePage() {
   const displayGrade = profile.grade ?? account.grade;
   const displayBio = profile.bio ?? account.bio;
   const displayInitials = profile.avatarInitials ?? account.avatarInitials;
-  const displayInterests = profile.interests ?? account.interests ?? [];
-  const displayGoals = profile.goals ?? account.goals ?? [];
+   const displayInterests = profile.interests ?? account.interests ?? [];
 
   return (
     <>

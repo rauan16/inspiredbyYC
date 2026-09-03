@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { TopBar } from "@/components/app/TopBar";
 import { OpportunityCard } from "@/components/app/OpportunityCard";
 import { opportunities as staticOpportunities } from "@/data/opportunities";
@@ -17,6 +17,8 @@ const categories: { value: OpportunityCategory | "all"; label: string }[] = [
   { value: "internship", label: "Стажировки" },
   { value: "scholarship", label: "Стипендии" },
   { value: "forum", label: "Форумы" },
+  { value: "conference", label: "Конференции" },
+  { value: "program", label: "Программы" },
   { value: "research", label: "Исследования" },
 ];
 
@@ -35,11 +37,20 @@ export default function OpportunitiesPage() {
 
   const { opportunities: apiOpportunities, loading } = useOpportunities();
 
-  const opportunities = apiOpportunities.length > 0 ? apiOpportunities : staticOpportunities;
+  const opportunities = useMemo(() => {
+    const base = apiOpportunities.length > 0 ? apiOpportunities : staticOpportunities;
+    if (apiOpportunities.length === 0) return base;
+    const map = new Map(base.map((o) => [o.id, o]));
+    for (const o of staticOpportunities) {
+      if (!map.has(o.id)) map.set(o.id, o);
+    }
+    return Array.from(map.values());
+  }, [apiOpportunities]);
 
   const filtered = useMemo(() => {
-    return opportunities.filter((o) => {
-      if (query && !`${o.title} ${o.organization}`.toLowerCase().includes(query.toLowerCase()))
+    const base = opportunities.filter((o) => o.status === "active");
+    return base.filter((o) => {
+      if (query && !`${o.title} ${o.organization} ${o.tags.join(" ")}`.toLowerCase().includes(query.toLowerCase()))
         return false;
       if (category !== "all" && o.category !== category) return false;
       if (format !== "all" && o.format !== format) return false;

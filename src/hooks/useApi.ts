@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 
 export function useOnlineStatus(): boolean {
@@ -43,7 +43,7 @@ export function useApiData<T>(
   const [data, setData] = useState<T>(fallback);
   const [loading, setLoading] = useState(true);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!opts.enabled) {
       setLoading(false);
       return;
@@ -55,11 +55,11 @@ export function useApiData<T>(
     } finally {
       setLoading(false);
     }
-  };
+  }, [path, opts.enabled]);
 
   useEffect(() => {
     fetchData();
-  }, [path, opts.enabled]);
+  }, [fetchData]);
 
   return { data, loading, refresh: fetchData };
 }

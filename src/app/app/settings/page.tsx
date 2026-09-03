@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { TopBar } from "@/components/app/TopBar";
 import { Field } from "@/components/ui/Field";
-import { student } from "@/data/student";
 import { cn } from "@/lib/utils";
 import { getAccount, StoredAccount } from "@/lib/account";
 import { useProfile } from "@/hooks/useProfile";

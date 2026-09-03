@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/app/Sidebar";
 import { BottomNav } from "@/components/app/BottomNav";
 import { initAuth, getAuthState, subscribeAuth, syncPendingActions } from "@/lib/auth";
@@ -8,6 +9,7 @@ import { initAuth, getAuthState, subscribeAuth, syncPendingActions } from "@/lib
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     const check = async () => {
@@ -34,6 +36,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (ready && !authenticated) {
+      router.replace("/login");
+    }
+  }, [ready, authenticated, router]);
+
   if (!ready) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-paper">
@@ -43,9 +51,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   if (!authenticated) {
-    if (typeof window !== "undefined") {
-      window.location.href = "/login";
-    }
     return (
       <div className="flex min-h-screen items-center justify-center bg-paper">
         <p className="text-ink-soft">Перенаправление на страницу входа...</p>

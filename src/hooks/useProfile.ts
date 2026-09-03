@@ -41,10 +41,34 @@ export function useProfile() {
   const fetchProfile = useCallback(async () => {
     try {
       setLoading(true);
-      const remote = await api.get<Partial<StoredAccount>>("/api/profile");
-      setProfile(remote);
-      setCachedProfile(remote);
-      saveAccount(remote);
+      const remote = await api.get<Record<string, unknown>>("/api/profile");
+      const mapped: Partial<StoredAccount> = {};
+
+      if (remote.name !== undefined) mapped.name = remote.name as string;
+      if (remote.grade !== undefined) mapped.grade = remote.grade as string;
+      if (remote.location !== undefined) mapped.location = remote.location as string;
+      if (remote.bio !== undefined) mapped.bio = remote.bio as string;
+      if (remote.interests !== undefined) mapped.interests = remote.interests as string[];
+      if (remote.goals !== undefined) mapped.goals = remote.goals as string[];
+      if (remote.portfolioStrength !== undefined) {
+        mapped.portfolioStrength = remote.portfolioStrength as number;
+      } else if (remote.portfolio_strength !== undefined) {
+        mapped.portfolioStrength = remote.portfolio_strength as number;
+      }
+      if (remote.avatarInitials !== undefined) {
+        mapped.avatarInitials = remote.avatarInitials as string;
+      } else if (remote.avatar_initials !== undefined) {
+        mapped.avatarInitials = remote.avatar_initials as string;
+      }
+      if (remote.academicInfo !== undefined) {
+        mapped.academicInfo = remote.academicInfo as NonNullable<StoredAccount["academicInfo"]>;
+      } else if (remote.academic_info !== undefined) {
+        mapped.academicInfo = remote.academic_info as NonNullable<StoredAccount["academicInfo"]>;
+      }
+
+      setProfile(mapped);
+      setCachedProfile(mapped);
+      saveAccount(mapped);
     } catch {
     } finally {
       setLoading(false);

@@ -15,8 +15,10 @@ export function UniversityPreview() {
               </p>
             </div>
             <div className="relative flex h-16 w-16 items-center justify-center rounded-full border-4 border-blue">
-              <span className="font-display text-[15px] font-bold text-blue">
-                {u.analysis.profileMatch}%
+              <span className="font-display text-[13px] font-bold text-blue text-center">
+                Fit
+                <br />
+                analysis
               </span>
             </div>
           </div>
@@ -24,28 +26,24 @@ export function UniversityPreview() {
           <div className="mt-5 grid grid-cols-2 gap-3">
             <div className="rounded-xl bg-paper-dim px-3.5 py-3">
               <p className="text-[10.5px] text-ink-soft">Академическое соответствие</p>
-              <p className="mt-1 font-display text-[13.5px] font-semibold">{u.analysis.academicFit}</p>
+              <p className="mt-1 font-display text-[13.5px] font-semibold">По профилю</p>
             </div>
             <div className="rounded-xl bg-paper-dim px-3.5 py-3">
               <p className="text-[10.5px] text-ink-soft">Сила заявки</p>
-              <p className="mt-1 font-display text-[13.5px] font-semibold">
-                {u.analysis.applicationStrength}
-              </p>
+              <p className="mt-1 font-display text-[13.5px] font-semibold">Оценивается</p>
             </div>
           </div>
 
           <div className="mt-4">
-            <p className="text-[11px] font-medium text-ink-soft">Рекомендации</p>
-            <ul className="mt-2 space-y-1.5">
-              {u.analysis.recommendations.map((r) => (
-                <li key={r} className="text-[12.5px] leading-snug text-ink">
-                  · {r}
-                </li>
-              ))}
+            <p className="text-[11px] font-medium text-ink-soft">Что анализируется:</p>
+            <ul className="mt-2 space-y-1">
+              <li className="text-[12px] text-ink">· Оценка, академические результаты, SAT/IELTS</li>
+              <li className="text-[12px] text-ink">· Интересы, проекты, лидерство, исследования</li>
+              <li className="text-[12px] text-ink">· Соответствие требованиям и наличие пробелов</li>
             </ul>
           </div>
           <p className="mt-4 text-[10.5px] text-ink-soft">
-            Оценка — ориентир, не гарантия поступления.
+            Узнай, насколько ты готов к конкретному университету — без фальшивых процентов.
           </p>
         </div>
 
@@ -55,13 +53,12 @@ export function UniversityPreview() {
             Узнай, насколько ты готов уже сейчас.
           </h3>
           <p className="mt-4 max-w-md text-[14.5px] leading-relaxed text-ink-soft">
-            Выбери университеты — ULYS покажет совпадение профиля, сильные
-            стороны и то, над чем стоит поработать до подачи заявки.
+            Выбери университеты — ULYS проанализирует твой профиль, покажет сильные стороны, пробелы и конкретные рекомендации, а не вымышленные проценты.
           </p>
           <ul className="mt-5 flex flex-col gap-2 text-[13.5px] text-ink-soft">
-            <li>— Profile Match по каждому университету</li>
-            <li>— Академическое соответствие и сила заявки</li>
-            <li>— Конкретные рекомендации, а не проценты «на удачу»</li>
+            <li>— Честный анализ: Fit Level + Confidence</li>
+            <li>— Что соответствует требованиям и где есть пробелы</li>
+            <li>— Конкретные шаги, а не «на удачу»</li>
           </ul>
         </div>
       </div>

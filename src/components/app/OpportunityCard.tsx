@@ -1,8 +1,8 @@
 "use client";
 
 import { Opportunity } from "@/types";
-import { cn } from "@/lib/utils";
-import { Star, Clock, MapPin } from "lucide-react";
+import { cn, getDeadlineLabel } from "@/lib/utils";
+import { Star, Clock, MapPin, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useSavedOpportunities } from "@/hooks/useSavedOpportunities";
 
@@ -13,15 +13,19 @@ const colorMap: Record<Opportunity["color"], { bg: string; text: string; sub: st
   violet: { bg: "bg-violet", text: "text-white", sub: "text-white/80" },
 };
 
-function formatDeadline(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
-}
-
 export function OpportunityCard({ opportunity }: { opportunity: Opportunity }) {
   const c = colorMap[opportunity.color];
   const { isSaved, toggleSave } = useSavedOpportunities();
   const saved = isSaved(opportunity.id);
+
+  const verificationLabel =
+    opportunity.verificationStatus === "verified"
+      ? "Проверено"
+      : opportunity.verificationStatus === "partially_verified"
+        ? "Частично проверено"
+        : opportunity.verificationStatus === "expired"
+          ? "Завершено"
+          : "Не проверено";
 
   return (
     <Link
@@ -37,22 +41,28 @@ export function OpportunityCard({ opportunity }: { opportunity: Opportunity }) {
         <span className={cn("text-[11px] font-medium uppercase tracking-[0.14em]", c.sub)}>
           {opportunity.categoryLabel}
         </span>
-        <button
-          type="button"
-          aria-pressed={saved}
-          aria-label={saved ? "Убрать из сохранённых" : "Сохранить возможность"}
-          onClick={(e) => {
-            e.preventDefault();
-            toggleSave(opportunity);
-          }}
-          className={cn(
-            "flex h-8 w-8 items-center justify-center rounded-full border border-white/30 backdrop-blur-sm transition-all duration-200",
-            saved ? "bg-white text-ink shadow-[0_10px_18px_rgba(0,0,0,0.12)]" : "bg-white/15 text-white hover:bg-white/25",
-            opportunity.color === "yellow" && !saved && "border-ink/10 bg-ink/10 text-ink hover:bg-ink/15"
-          )}
-        >
-          <Star className="h-3.5 w-3.5" fill={saved ? "currentColor" : "none"} strokeWidth={2} />
-        </button>
+        <div className="flex items-center gap-1.5">
+          <span className="flex items-center gap-1 rounded-full bg-black/5 px-2 py-0.5 text-[10px] font-medium text-ink">
+            <ShieldCheck className="h-3 w-3" />
+            {verificationLabel}
+          </span>
+          <button
+            type="button"
+            aria-pressed={saved}
+            aria-label={saved ? "Убрать из сохранённых" : "Сохранить возможность"}
+            onClick={(e) => {
+              e.preventDefault();
+              toggleSave(opportunity);
+            }}
+            className={cn(
+              "flex h-8 w-8 items-center justify-center rounded-full border border-white/30 backdrop-blur-sm transition-all duration-200",
+              saved ? "bg-white text-ink shadow-[0_10px_18px_rgba(0,0,0,0.12)]" : "bg-white/15 text-white hover:bg-white/25",
+              opportunity.color === "yellow" && !saved && "border-ink/10 bg-ink/10 text-ink hover:bg-ink/15"
+            )}
+          >
+            <Star className="h-3.5 w-3.5" fill={saved ? "currentColor" : "none"} strokeWidth={2} />
+          </button>
+        </div>
       </div>
 
       <div className="relative">
@@ -60,11 +70,19 @@ export function OpportunityCard({ opportunity }: { opportunity: Opportunity }) {
           {opportunity.title}
         </h3>
         <p className={cn("mt-2 text-[13px]", c.sub)}>{opportunity.organization}</p>
+        <p className={cn("mt-2 line-clamp-2 text-[12.5px] leading-relaxed", c.sub)}>
+          {opportunity.description}
+        </p>
+        {opportunity.recommendationReason && (
+          <p className={cn("mt-2 line-clamp-2 text-[11px] italic leading-relaxed", c.sub)}>
+            {opportunity.recommendationReason}
+          </p>
+        )}
       </div>
 
       <div className={cn("relative flex items-center gap-3 text-[12px] font-medium", c.sub)}>
         <span className="flex items-center gap-1.5 rounded-full bg-black/5 px-2 py-1">
-          <Clock className="h-3.5 w-3.5" /> {formatDeadline(opportunity.deadline)}
+          <Clock className="h-3.5 w-3.5" /> {getDeadlineLabel(opportunity.deadline, opportunity.deadlineType)}
         </span>
         <span className="flex items-center gap-1.5 rounded-full bg-black/5 px-2 py-1">
           <MapPin className="h-3.5 w-3.5" /> {opportunity.location}

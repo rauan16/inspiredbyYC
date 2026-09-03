@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import {
   LayoutGrid,
   Compass,
@@ -31,6 +31,7 @@ const navItems = [
 ];
 
 export function Sidebar() {
+  const router = useRouter();
   const pathname = usePathname();
   const [account, setAccount] = useState(student);
   const isOnline = useOnlineStatus();
@@ -44,7 +45,7 @@ export function Sidebar() {
 
   const handleLogout = async () => {
     await logout();
-    window.location.href = "/login";
+    router.replace("/login");
   };
 
   return (

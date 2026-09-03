@@ -31,6 +31,10 @@ function setCached(data: Opportunity[]) {
 }
 
 export function useOpportunities(params?: { category?: string; format?: string; search?: string }) {
+  const category = params?.category;
+  const format = params?.format;
+  const search = params?.search;
+
   const [opportunities, setOpportunities] = useState<Opportunity[]>(() => getCached() || []);
   const [loading, setLoading] = useState(!getCached());
 
@@ -38,9 +42,9 @@ export function useOpportunities(params?: { category?: string; format?: string; 
     try {
       setLoading(true);
       const searchParams = new URLSearchParams();
-      if (params?.category && params.category !== "all") searchParams.set("category", params.category);
-      if (params?.format && params.format !== "all") searchParams.set("format", params.format);
-      if (params?.search) searchParams.set("search", params.search);
+      if (category && category !== "all") searchParams.set("category", category);
+      if (format && format !== "all") searchParams.set("format", format);
+      if (search) searchParams.set("search", search);
       const qs = searchParams.toString();
       const data = await api.get<Opportunity[]>(`/api/opportunities${qs ? `?${qs}` : ""}`);
       setOpportunities(data);
@@ -49,7 +53,7 @@ export function useOpportunities(params?: { category?: string; format?: string; 
     } finally {
       setLoading(false);
     }
-  }, [params?.category, params?.format, params?.search]);
+  }, [category, format, search]);
 
   useEffect(() => {
     fetchOpportunities();

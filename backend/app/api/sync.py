@@ -26,6 +26,9 @@ async def sync(
                 if key in ("interests", "goals") and isinstance(value, list):
                     import json
                     value = json.dumps(value)
+                if key == "academic_info" and isinstance(value, (dict, list)):
+                    import json
+                    value = json.dumps(value)
                 fields.append(f"{key} = ?")
                 values.append(value)
 

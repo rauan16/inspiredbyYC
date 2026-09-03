@@ -7,9 +7,18 @@ export type OpportunityCategory =
   | "forum"
   | "conference"
   | "program"
-  | "research";
+  | "research"
+  | "competition"
+  | "grant"
+  | "festival";
 
-export type OpportunityColor = "red" | "yellow" | "blue" | "violet";
+export type OpportunityFormat = "online" | "offline" | "hybrid";
+
+export type VerificationStatus = "verified" | "partially_verified" | "unverified" | "expired";
+
+export type OpportunityStatus = "active" | "expired" | "upcoming" | "closed";
+
+export type DeadlineType = "date" | "rolling";
 
 export interface Opportunity {
   id: string;
@@ -17,37 +26,85 @@ export interface Opportunity {
   organization: string;
   category: OpportunityCategory;
   categoryLabel: string;
-  deadline: string; // ISO date
+  deadline: string;
+  deadlineType: DeadlineType;
+  eventDate?: string;
   location: string;
-  format: "online" | "offline" | "hybrid";
+  format: OpportunityFormat;
   eligibility: string;
+  ageGrade?: string;
   description: string;
   requirements: string[];
   timeline: { label: string; date: string }[];
-  color: OpportunityColor;
-  saved?: boolean;
+  color: string;
   recommended?: boolean;
+  recommendationReason?: string;
+  saved?: boolean;
+  status: OpportunityStatus;
+  verificationStatus: VerificationStatus;
+  verified: boolean;
+  officialSourceUrl: string;
+  applicationUrl?: string;
+  lastVerifiedAt: string;
+  tags: string[];
+  relevantSubjects: string[];
+  targetUserTypes: string[];
+  isFree: boolean;
   website: string;
 }
 
 export interface UniversityAnalysis {
-  profileMatch: number; // 0-100
-  academicFit: "Слабое" | "Среднее" | "Хорошее" | "Сильное";
-  applicationStrength: "Начальный уровень" | "Развивается" | "Конкурентоспособно" | "Отличный уровень";
+  profileMatch: string;
+  confidence: "High" | "Medium" | "Low";
+  missingData: string[];
+  academicStrength: number;
+  testingStrength: number;
+  extracurricularStrength: number;
+  researchStrength: number;
+  leadershipStrength: number;
+  universityFit: number;
+  overallProfileStrength: number;
+  academicFit: string;
+  testingFit: string;
+  majorFit: string;
+  extracurricularFit: string;
+  researchFit: string;
+  leadershipFit: string;
+  requirementsFit: string;
+  applicationStrength: string;
   strengths: string[];
   gaps: string[];
   recommendations: string[];
+  explanation: string;
 }
 
 export interface University {
   id: string;
   name: string;
   country: string;
+  city: string;
   location: string;
   deadline: string;
   requirements: string[];
   overview: string;
-  analysis: UniversityAnalysis;
+  rankingContext?: string;
+  acceptanceInfo?: string;
+  undergraduatePrograms: string[];
+  majors: string[];
+  internationalRequirements: string[];
+  kazakhstanRequirements: string[];
+  satRequirements?: string;
+  languageRequirements: string;
+  gpaRequirements?: string;
+  curriculumRequirements: string[];
+  subjectRequirements: string[];
+  applicationPlatform?: string;
+  scholarshipAvailability: boolean;
+  tuition?: string;
+  financialAid?: string;
+  officialAdmissionsUrl: string;
+   lastVerifiedAt: string;
+   analysis?: UniversityAnalysis;
 }
 
 export interface PortfolioEntry {
@@ -66,6 +123,30 @@ export interface PortfolioEntry {
   subtitle?: string;
   date?: string;
   description?: string;
+  link?: string;
+  issuer?: string;
+}
+
+export interface PortfolioExport {
+  name: string;
+  profileSummary: string;
+  education: PortfolioEntry[];
+  academicAchievements: PortfolioEntry[];
+  testScores: PortfolioEntry[];
+  olympiads: PortfolioEntry[];
+  competitions: PortfolioEntry[];
+  projects: PortfolioEntry[];
+  research: PortfolioEntry[];
+  leadership: PortfolioEntry[];
+  volunteering: PortfolioEntry[];
+  internships: PortfolioEntry[];
+  awards: PortfolioEntry[];
+  certifications: PortfolioEntry[];
+  skills: PortfolioEntry[];
+  languages: PortfolioEntry[];
+  links: { label: string; url: string }[];
+  contact?: string;
+  exportedAt: string;
 }
 
 export interface MentorMessage {
@@ -73,6 +154,19 @@ export interface MentorMessage {
   role: "student" | "mentor";
   content: string;
   actions?: string[];
+}
+
+export interface AcademicInfo {
+  school?: string;
+  curriculum?: string;
+  gpa?: number;
+  gpaScale?: "4.0" | "5.0" | "100" | "percentage";
+  sat?: number;
+  act?: number;
+  ielts?: number;
+  toefl?: number;
+  intendedMajor?: string;
+  graduationYear?: string;
 }
 
 export interface Student {
@@ -84,4 +178,5 @@ export interface Student {
   goals: string[];
   portfolioStrength: number;
   avatarInitials: string;
+  academicInfo?: AcademicInfo;
 }

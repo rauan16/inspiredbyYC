@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Any
 
 
 class SyncPortfolioItem(BaseModel):
@@ -39,6 +39,7 @@ class SyncProfile(BaseModel):
     goals: Optional[list[str]] = None
     portfolio_strength: Optional[int] = None
     avatar_initials: Optional[str] = None
+    academic_info: Optional[Any] = None
 
 
 class SyncRequest(BaseModel):

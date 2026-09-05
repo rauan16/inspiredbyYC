@@ -8,6 +8,7 @@ import { OpportunityCategory } from "@/types";
 import { cn } from "@/lib/utils";
 import { Search } from "lucide-react";
 import { useOpportunities } from "@/hooks/useOpportunities";
+import { useRecommendedOpportunities } from "@/hooks/useRecommendedOpportunities";
 
 const categories: { value: OpportunityCategory | "all"; label: string }[] = [
   { value: "all", label: "Все" },
@@ -47,6 +48,8 @@ export default function OpportunitiesPage() {
     return Array.from(map.values());
   }, [apiOpportunities]);
 
+  const { recommendations: recommendedOpps } = useRecommendedOpportunities(opportunities, 6);
+
   const filtered = useMemo(() => {
     const base = opportunities.filter((o) => o.status === "active");
     return base.filter((o) => {
@@ -58,6 +61,12 @@ export default function OpportunitiesPage() {
       return true;
     });
   }, [query, category, format, onlyRecommended, opportunities]);
+
+  const recommendedFiltered = useMemo(() => {
+    if (!recommendedOpps || recommendedOpps.length === 0) return [];
+    const ids = new Set(recommendedOpps.map((r) => r.opportunity.id));
+    return filtered.filter((o) => ids.has(o.id));
+  }, [filtered, recommendedOpps]);
 
   return (
     <>
@@ -124,6 +133,19 @@ export default function OpportunitiesPage() {
           </div>
         ) : (
           <>
+            {recommendedFiltered.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-[12.5px] font-medium uppercase tracking-wide text-ink-soft">
+                  Рекомендовано для вас
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {recommendedFiltered.map((o) => (
+                    <OpportunityCard key={o.id} opportunity={o} />
+                  ))}
+                </div>
+              </div>
+            )}
+
             <p className="text-[12.5px] text-ink-soft">Найдено: {filtered.length}</p>
 
             {filtered.length > 0 ? (

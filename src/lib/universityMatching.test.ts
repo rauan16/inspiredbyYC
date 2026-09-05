@@ -211,7 +211,7 @@ console.log("\n───────── TEST D: Weak Student ─────�
   assert(a1.majorFit === "Weak", "Major fit should be 'Weak' (music interest vs CS/Engineering majors)");
   assert(a1.extracurricularFit === "Insufficient data", "Extracurricular fit should be Insufficient data");
   assert(a1.leadershipFit === "Insufficient data", "Leadership fit should be Insufficient data");
-  assert(a1.profileMatch === "Not reliably estimable", "Should be 'Not reliably estimable' due to missing test scores");
+  assert(a1.profileMatch === "Weak Fit", "Missing test scores and weak fit should still produce a Weak Fit estimate, not 'Not reliably estimable'");
 
   assert(a2.majorFit === "Weak", "ETH majorFit should be Weak (music interest)");
   assert(a2.missingData.some((m) => m.includes("IELTS") || m.includes("TOEFL")), "ETH should flag missing IELTS/TOEFL");

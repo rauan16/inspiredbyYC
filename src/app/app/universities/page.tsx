@@ -70,9 +70,20 @@ export default function UniversitiesPage() {
                       {u.city}, {u.country}
                     </p>
                   </div>
-                  <span className={`font-display text-[12.5px] font-bold ${FIT_COLORS[analysis.profileMatch] || "text-ink-soft"}`}>
-                    {analysis.profileMatch}
-                  </span>
+                  {analysis.admissionEstimate?.available ? (
+                    <div className="text-right">
+                      <span className="font-display text-[12.5px] font-bold text-blue">
+                        {analysis.admissionEstimate.min}–{analysis.admissionEstimate.max}%
+                      </span>
+                      <p className="mt-0.5 text-[10.5px] text-ink-soft">
+                        {analysis.admissionEstimate.confidence === "High" ? "Высокая" : analysis.admissionEstimate.confidence === "Medium" ? "Средняя" : "Низкая"} уверенность
+                      </p>
+                    </div>
+                  ) : (
+                    <span className={`font-display text-[12.5px] font-bold ${FIT_COLORS[analysis.profileMatch] || "text-ink-soft"}`}>
+                      {analysis.profileMatch}
+                    </span>
+                  )}
                 </div>
                 <p className="mt-3 text-[11.5px] text-ink-soft">Дедлайн заявки · {u.deadline}</p>
                 <p className="mt-1 text-[11px] text-ink-soft">Уверенность: {analysis.confidence === "High" ? "Высокая" : analysis.confidence === "Medium" ? "Средняя" : "Низкая"}</p>

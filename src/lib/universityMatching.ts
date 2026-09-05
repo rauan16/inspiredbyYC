@@ -597,10 +597,7 @@ export function computeUniversityAnalysis(
   let fitLevel: OverallFitLevel;
   let confidence: ConfidenceLevel;
 
-  if (criticalMissing > 0) {
-    fitLevel = "Not reliably estimable";
-    confidence = "Low";
-  } else if (profile.portfolio.length === 0) {
+  if (profile.portfolio.length === 0) {
     fitLevel = "Not reliably estimable";
     confidence = "Low";
   } else {
@@ -610,19 +607,25 @@ export function computeUniversityAnalysis(
       else if (f === "Good") fitScores.push(2);
       else if (f === "Moderate") fitScores.push(1);
       else if (f === "Weak") fitScores.push(0);
+      else fitScores.push(0);
     });
 
     const avg = fitScores.reduce((a, b) => a + b, 0) / fitScores.length;
 
     if (avg >= 2.3) {
       fitLevel = "Strong Fit";
-      confidence = criticalMissing > 0 ? "Medium" : "High";
     } else if (avg >= 1.3) {
       fitLevel = "Moderate Fit";
-      confidence = "Medium";
     } else {
       fitLevel = "Weak Fit";
-      confidence = criticalMissing > 0 ? "Medium" : "Low";
+    }
+
+    if (criticalMissing > 0) {
+      confidence = "Low";
+    } else if (fitScores.some((s) => s === 0)) {
+      confidence = "Medium";
+    } else {
+      confidence = "High";
     }
   }
 

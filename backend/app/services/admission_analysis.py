@@ -258,9 +258,7 @@ Return your analysis as JSON only, following the exact schema specified in the s
                 content = choices[0].get("message", {}).get("content", "")
 
                 try:
-                    result = json.loads(content)
-                    if isinstance(result, str):
-                        result = json.loads(result)
+                    result = _extract_json(content)
                     if not isinstance(result, dict):
                         raise ValueError("Response is not a dict")
                 except (json.JSONDecodeError, ValueError) as e:
@@ -292,3 +290,57 @@ Return your analysis as JSON only, following the exact schema specified in the s
             detail="AI service unavailable. Please try again later.",
         )
     raise HTTPException(status_code=502, detail="AI service error")
+
+
+def _extract_json(text: str) -> dict | list | str | None:
+    """Best-effort JSON extraction from LLM output."""
+    if not text:
+        return None
+
+    cleaned = text.strip()
+
+    # Remove markdown code blocks
+    if cleaned.startswith("```"):
+        lines = cleaned.splitlines()
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        cleaned = "\n".join(lines).strip()
+
+    # Direct parse
+    try:
+        parsed = json.loads(cleaned)
+        if isinstance(parsed, str):
+            parsed = json.loads(parsed)
+        return parsed
+    except (json.JSONDecodeError, ValueError):
+        pass
+
+    # Extract JSON object from mixed text
+    start = cleaned.find("{")
+    end = cleaned.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        candidate = cleaned[start:end + 1]
+        try:
+            parsed = json.loads(candidate)
+            if isinstance(parsed, str):
+                parsed = json.loads(parsed)
+            return parsed
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    # Extract JSON array from mixed text
+    start = cleaned.find("[")
+    end = cleaned.rfind("]")
+    if start != -1 and end != -1 and end > start:
+        candidate = cleaned[start:end + 1]
+        try:
+            parsed = json.loads(candidate)
+            if isinstance(parsed, str):
+                parsed = json.loads(parsed)
+            return parsed
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    return None

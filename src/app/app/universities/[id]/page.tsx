@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle2, AlertCircle, ExternalLink } from "lucide-react";
 import { UniversityAnalysisSidebar } from "@/components/university/UniversityAnalysisSidebar";
+import { AdmissionAnalysisWrapper } from "./AdmissionAnalysisWrapper";
 
 export function generateStaticParams() {
   return universities.map((u) => ({ id: u.id }));
@@ -100,8 +101,11 @@ export default async function UniversityDetailPage({
             )}
           </div>
 
-          <div className="h-fit">
+      <div className="h-fit">
             <UniversityAnalysisSidebar university={u} />
+            <div className="mt-6">
+              <AdmissionAnalysisWrapper university={u} />
+            </div>
           </div>
         </div>
       </div>

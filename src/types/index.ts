@@ -53,6 +53,55 @@ export interface Opportunity {
   website: string;
 }
 
+export interface AdmissionRequirementAnalysis {
+  criterion: string;
+  status: "MET" | "NOT_MET" | "MISSING" | "UNKNOWN";
+  studentValue?: string;
+  requiredValue?: string;
+  explanation: string;
+}
+
+export interface AdmissionProfileDimension {
+  rating: "EXCELLENT" | "STRONG" | "GOOD" | "MODERATE" | "WEAK" | "INSUFFICIENT_DATA";
+  explanation: string;
+}
+
+export interface AdmissionProfileAnalysis {
+  academic: AdmissionProfileDimension;
+  extracurricular: AdmissionProfileDimension;
+  portfolio: AdmissionProfileDimension;
+}
+
+export interface AdmissionOverallAssessment {
+  level: "HIGHLY_COMPETITIVE" | "COMPETITIVE" | "MODERATE" | "WEAK" | "INSUFFICIENT_DATA";
+  explanation: string;
+}
+
+export interface AdmissionEstimate {
+  available: boolean;
+  min?: number;
+  max?: number;
+  confidence?: "HIGH" | "MEDIUM" | "LOW" | null;
+  explanation: string;
+}
+
+export interface AdmissionRecommendation {
+  priority: "HIGH" | "MEDIUM" | "LOW";
+  action: string;
+  reason: string;
+}
+
+export interface AdmissionAnalysis {
+  requirementAnalysis: AdmissionRequirementAnalysis[];
+  profileAnalysis: AdmissionProfileAnalysis;
+  overallAssessment: AdmissionOverallAssessment;
+  admissionEstimate: AdmissionEstimate;
+  weaknesses: string[];
+  recommendations: AdmissionRecommendation[];
+  studentProfile: Record<string, unknown>;
+  universityData: Record<string, unknown>;
+}
+
 export interface UniversityAnalysis {
   profileMatch: string;
   confidence: "High" | "Medium" | "Low";
@@ -76,6 +125,20 @@ export interface UniversityAnalysis {
   gaps: string[];
   recommendations: string[];
   explanation: string;
+  admissionEstimate?: {
+    available: boolean;
+    min: number;
+    max: number;
+    confidence: "High" | "Medium" | "Low";
+    factors: string[];
+    gaps: string[];
+  };
+  activitySignals?: {
+    category: string;
+    strength: "Strong" | "Moderate" | "Weak";
+    title: string;
+    relevance: string;
+  }[];
 }
 
 export interface University {

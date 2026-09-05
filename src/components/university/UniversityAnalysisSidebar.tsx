@@ -42,9 +42,33 @@ export function UniversityAnalysisSidebar({ university }: UniversityAnalysisSide
         </div>
         <p className="mt-2 text-[12px] font-medium text-ink-soft">Fit Level</p>
         <p className="mt-1 text-[10.5px] text-ink-soft">Оценка — ориентир, не гарантия поступления</p>
-        <p className="mt-1 text-[10.5px] font-medium text-ink">
-          Уверенность: {analysis.confidence === "High" ? "Высокая" : analysis.confidence === "Medium" ? "Средняя" : "Низкая"}
-        </p>
+      <p className="mt-1 text-[10.5px] font-medium text-ink">
+        Уверенность: {analysis.confidence === "High" ? "Высокая" : analysis.confidence === "Medium" ? "Средняя" : "Низкая"}
+      </p>
+      {analysis.admissionEstimate?.available && (
+        <div className="mt-3 rounded-xl bg-paper-dim px-4 py-3">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-ink-soft">ULYS estimated chance</p>
+          <div className="mt-1 flex items-baseline gap-2">
+            <span className="font-display text-[20px] font-bold text-blue">
+              {analysis.admissionEstimate.min}–{analysis.admissionEstimate.max}%
+            </span>
+            <span className="text-[11px] text-ink-soft">
+              Confidence: {analysis.admissionEstimate.confidence === "High" ? "Высокая" : analysis.admissionEstimate.confidence === "Medium" ? "Средняя" : "Низкая"}
+            </span>
+          </div>
+          {analysis.admissionEstimate.factors?.length > 0 && (
+            <p className="mt-1 text-[11px] text-ink-soft">
+              Strong: {analysis.admissionEstimate.factors.slice(0, 4).join(", ")}
+            </p>
+          )}
+          {analysis.admissionEstimate.gaps?.length > 0 && (
+            <p className="mt-0.5 text-[11px] text-ink-soft">
+              Gaps: {analysis.admissionEstimate.gaps.slice(0, 3).join(", ")}
+            </p>
+          )}
+          <p className="mt-1 text-[10px] text-ink-soft">Оценка — ориентир, не гарантия поступления</p>
+        </div>
+      )}
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -153,6 +177,22 @@ export function UniversityAnalysisSidebar({ university }: UniversityAnalysisSide
           <p className="mt-2 text-[12.5px] leading-snug text-ink">
             {analysis.explanation}
           </p>
+        </div>
+      )}
+
+      {analysis.activitySignals && analysis.activitySignals.length > 0 && (
+        <div className="border-t border-line pt-4">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-ink-soft">
+            Сигналы профиля
+          </p>
+          <ul className="mt-2 space-y-1.5">
+            {analysis.activitySignals.map((s, i) => (
+              <li key={i} className="text-[12.5px] text-ink">
+                <span className="font-medium">{s.category}</span>
+                <span className="text-ink-soft"> — {s.relevance}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

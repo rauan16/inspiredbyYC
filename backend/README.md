@@ -44,11 +44,11 @@ SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 SUPABASE_JWT_SECRET=your-jwt-secret
 
-AI_API_BASE_URL=http://localhost:20128/v1
-AI_API_KEY=your-key
-AI_MODEL=your-model
+OPENROUTER_API_KEY=your-openrouter-key
+AI_API_BASE_URL=https://openrouter.ai/api/v1
+AI_MODEL=deepseek/deepseek-chat
 
-CORS_ALLOWED_ORIGINS=http://localhost:3000
+CORS_ALLOWED_ORIGINS=http://localhost:3000,https://ulys-gamma.vercel.app
 ```
 
 ### 4. Run migrations

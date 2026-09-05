@@ -339,6 +339,7 @@ function computeRecommendations(
   testingMissing: string[],
   requirementsMissing: string[],
   profile: ProfileSnapshot,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   university: University
 ): string[] {
   const recs: string[] = [];
@@ -368,6 +369,188 @@ function computeRecommendations(
   }
 
   return Array.from(new Set(recs));
+}
+
+type ActivityCategory =
+  | "Academic"
+  | "Research"
+  | "Technology"
+  | "Entrepreneurship"
+  | "Leadership"
+  | "Competition"
+  | "Sports"
+  | "Arts"
+  | "Community"
+  | "Professional"
+  | "Project"
+  | "Innovation"
+  | "International"
+  | "Personal"
+  | "Other";
+
+interface ClassifiedActivity {
+  entry: ProfileSnapshot["portfolio"][0];
+  categories: ActivityCategory[];
+  strength: "Strong" | "Moderate" | "Weak";
+  relevance: string;
+}
+
+export function classifyActivity(entry: ProfileSnapshot["portfolio"][0]): ClassifiedActivity {
+  const text = ((entry.title || "") + " " + (entry.description || "") + " " + (entry.subtitle || "")).toLowerCase();
+  const categories: ActivityCategory[] = [];
+  let strength: "Strong" | "Moderate" | "Weak" = "Weak";
+  let relevance = "";
+
+  if (/olympiad|диплом|academic|academic/i.test(text)) {
+    categories.push("Academic");
+  }
+  if (/research|исследователь|lab|лаборатор|published|paper/i.test(text)) {
+    categories.push("Research");
+  }
+  if (/tech|software|ai|python|code|programming|application|app|digital|data|it|developer|engineering|hackathon|startup/i.test(text)) {
+    categories.push("Technology");
+  }
+  if (/startup|founder|co-founder|business|entrepreneur|product|revenue|funding|venture/i.test(text)) {
+    categories.push("Entrepreneurship");
+    categories.push("Innovation");
+  }
+  if (/lead|organiz|headed|managed|president|founder|director|captain|chair/i.test(text)) {
+    categories.push("Leadership");
+  }
+  if (/hackathon|competition|contest|olympiad|award|prize|winner|1st|2nd|3rd|finalist|championship/i.test(text)) {
+    categories.push("Competition");
+  }
+  if (/marathon|sport|football|basketball|swim|run|athletic|gym|fitness|competition/i.test(text)) {
+    categories.push("Sports");
+  }
+  if (/art|music|theater|film|photography|design|drawing|painting|creative/i.test(text)) {
+    categories.push("Arts");
+  }
+  if (/volunteer|charity|community|service|social|ngo|campaign|help/i.test(text)) {
+    categories.push("Community");
+  }
+  if (/intern|experience|company|firm|office|professional|career|job/i.test(text)) {
+    categories.push("Professional");
+  }
+  if (/project|built|developed|created|launched|implemented|designed/i.test(text)) {
+    categories.push("Project");
+  }
+  if (/international|exchange|abroad|global|world|overseas|foreign/i.test(text)) {
+    categories.push("International");
+  }
+  if (/hobby|interest|club|personal|fun|leisure/i.test(text)) {
+    categories.push("Personal");
+  }
+
+  if (categories.length === 0) {
+    categories.push("Other");
+  }
+
+  const strongIndicators = /won|winner|1st|first|gold|published|founded|built|led|head|managed|national|international|top/i.test(text);
+  const moderateIndicators = /participated|attended|organized|created|developed|project|intern|member|team/i.test(text);
+
+  if (strongIndicators) {
+    strength = "Strong";
+  } else if (moderateIndicators) {
+    strength = "Moderate";
+  }
+
+  if (categories.includes("Entrepreneurship") || categories.includes("Research")) {
+    relevance = "Demonstrates initiative and real-world impact";
+  } else if (categories.includes("Competition") && strength === "Strong") {
+    relevance = "Demonstrates competitive excellence";
+  } else if (categories.includes("Technology") || categories.includes("Project")) {
+    relevance = "Demonstrates practical technical experience";
+  } else if (categories.includes("Leadership")) {
+    relevance = "Demonstrates leadership and initiative";
+  } else if (categories.includes("Sports")) {
+    relevance = "Demonstrates discipline and commitment";
+  } else if (categories.includes("Community")) {
+    relevance = "Demonstrates social engagement and initiative";
+  } else if (categories.includes("Professional")) {
+    relevance = "Demonstrates professional experience";
+  } else if (categories.includes("Academic")) {
+    relevance = "Demonstrates academic achievement";
+  } else {
+    relevance = "Adds a personal dimension to the profile";
+  }
+
+  return { entry, categories, strength, relevance };
+}
+
+export function classifyPortfolio(portfolio: ProfileSnapshot["portfolio"]): ClassifiedActivity[] {
+  const classified: ClassifiedActivity[] = [];
+  const seen = new Set<string>();
+
+  for (const entry of portfolio) {
+    const key = (entry.title + (entry.description || "")).toLowerCase().trim();
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const result = classifyActivity(entry);
+    classified.push(result);
+  }
+
+  return classified;
+}
+
+export function getProgramFocus(university: University): string {
+  const majors = (university.majors || []).join(" ").toLowerCase();
+  const programs = (university.undergraduatePrograms || []).join(" ").toLowerCase();
+  const text = majors + " " + programs;
+
+  if (/computer|software|engineer|tech|information|data|math|physics|chemistry|biology|science/i.test(text)) {
+    return "STEM";
+  }
+  if (/business|management|economics|finance|entrepreneur|marketing/i.test(text)) {
+    return "Business";
+  }
+  if (/medicine|health|medical|nursing|pharmacy/i.test(text)) {
+    return "Medicine";
+  }
+  if (/law|legal|justice/i.test(text)) {
+    return "Law";
+  }
+  if (/arts|humanities|literature|history|philosophy|social|political|economics/i.test(text)) {
+    return "LiberalArts";
+  }
+  return "General";
+}
+
+function getCategoryProgramRelevance(category: ActivityCategory, programFocus: string): number {
+  const relevance: Record<string, Record<string, number>> = {
+    STEM: { Research: 3, Technology: 3, Competition: 2, Project: 2, Innovation: 2, Academic: 2, Leadership: 1, Sports: 1, Personal: 1, Community: 1, Professional: 1, Arts: 1, Entrepreneurship: 1, International: 1, Other: 0 },
+    Business: { Entrepreneurship: 3, Leadership: 3, Competition: 2, Project: 2, Innovation: 2, Professional: 2, Community: 1, Academic: 1, Sports: 1, Personal: 1, Research: 1, Technology: 1, Arts: 1, International: 1, Other: 0 },
+    Medicine: { Research: 3, Community: 3, Academic: 2, Professional: 2, Competition: 2, Project: 1, Leadership: 1, Sports: 1, Personal: 1, Technology: 1, Innovation: 1, Arts: 1, International: 1, Entrepreneurship: 1, Other: 0 },
+    Law: { Leadership: 3, Community: 3, Competition: 2, Academic: 2, Project: 1, Professional: 1, Sports: 1, Personal: 1, Research: 1, Technology: 1, Innovation: 1, Arts: 1, International: 1, Entrepreneurship: 1, Other: 0 },
+    LiberalArts: { Leadership: 3, Community: 3, Arts: 3, Competition: 2, Academic: 2, Project: 2, Research: 2, Sports: 1, Personal: 1, Technology: 1, Innovation: 1, International: 1, Professional: 1, Entrepreneurship: 1, Other: 0 },
+    General: { Leadership: 2, Competition: 2, Project: 2, Research: 2, Technology: 2, Innovation: 2, Community: 2, Professional: 2, Academic: 2, Sports: 1, Personal: 1, Arts: 1, International: 1, Entrepreneurship: 1, Other: 0 },
+  };
+
+  return relevance[programFocus]?.[category] ?? 0;
+}
+
+export function computeHolisticExtracurricularScore(
+  classified: ClassifiedActivity[],
+  programFocus: string
+): { score: number; signals: string[] } {
+  let score = 0;
+  const signals: string[] = [];
+
+  const seen = new Set<ActivityCategory>();
+
+  for (const activity of classified) {
+    const categoryScore = getCategoryProgramRelevance(activity.categories[0], programFocus);
+    const strengthMultiplier = activity.strength === "Strong" ? 1.0 : activity.strength === "Moderate" ? 0.7 : 0.4;
+
+    if (categoryScore > 0 && !seen.has(activity.categories[0])) {
+      score += categoryScore * strengthMultiplier;
+      seen.add(activity.categories[0]);
+      signals.push(`${activity.strength} ${activity.categories[0].toLowerCase()}: ${activity.relevance}`);
+    }
+  }
+
+  return { score: Math.min(20, Math.round(score)), signals: signals.slice(0, 5) };
 }
 
 export function computeUniversityAnalysis(
@@ -454,6 +637,9 @@ export function computeUniversityAnalysis(
 
   const explanation = buildExplanation(fitLevel, confidence, profile, university, missingData, criticalMissing);
 
+  const classified = classifyPortfolio(profile.portfolio);
+  const programFocus = getProgramFocus(university);
+
   const analysis: UniversityAnalysis = {
     profileMatch: fitLevel,
     confidence,
@@ -477,6 +663,13 @@ export function computeUniversityAnalysis(
     gaps,
     recommendations,
     explanation,
+    activitySignals: classified.map((c) => ({
+      category: c.categories[0],
+      strength: c.strength,
+      title: c.entry.title,
+      relevance: c.relevance,
+    })),
+    admissionEstimate: computeAdmissionEstimate(profile, sections, university, classified, programFocus),
   };
 
   const strengthValues = [analysis.academicStrength, analysis.testingStrength, analysis.extracurricularStrength, analysis.researchStrength, analysis.leadershipStrength];
@@ -486,6 +679,115 @@ export function computeUniversityAnalysis(
   return analysis;
 }
 
+function computeAdmissionEstimate(
+  profile: ProfileSnapshot,
+  sections: Record<string, ProfileSnapshot["portfolio"]>,
+  university: University,
+  classified: ClassifiedActivity[] = [],
+  programFocus: string = "General"
+): { available: boolean; min: number; max: number; confidence: "High" | "Medium" | "Low"; factors: string[]; gaps: string[] } {
+  const factors: string[] = [];
+  const gaps: string[] = [];
+
+  const sat = profile.academicInfo?.sat;
+  const act = profile.academicInfo?.act;
+  const ielts = profile.academicInfo?.ielts ?? profile.academicInfo?.toefl;
+  const gpa = profile.academicInfo?.gpa;
+
+  const achievements = sections["achievements"] || [];
+  const projects = sections["projects"] || [];
+  const leadership = sections["leadership"] || [];
+  const competitions = sections["competitions"] || [];
+  const volunteering = sections["volunteering"] || [];
+  const certificates = sections["certificates"] || [];
+  const education = sections["education"] || [];
+
+  const satRaw = university.satRequirements || "";
+  const langRaw = university.languageRequirements || "";
+  const gpaRaw = university.gpaRequirements || "";
+  const satOptional = /optional/i.test(satRaw) || /не используется/i.test(satRaw) || /not specified/i.test(satRaw);
+  const satConsidered = !satOptional && /sat|act|requir|consider/i.test(satRaw);
+  const ieltsRequired = /ielts|toefl|английский|english/i.test(langRaw);
+  const gpaRequired = /gpa|балл|grade/i.test(gpaRaw);
+
+  const hasSat = sat !== undefined || act !== undefined;
+  const hasIelts = ielts !== undefined;
+  const hasGpa = gpa !== undefined;
+
+  if (satConsidered) {
+    if (hasSat) factors.push(`SAT ${sat ?? act}`);
+    else gaps.push("SAT/ACT score");
+  }
+  if (ieltsRequired) {
+    if (hasIelts) factors.push(`IELTS ${ielts}`);
+    else gaps.push("IELTS/TOEFL score");
+  }
+  if (gpaRequired) {
+    if (hasGpa) factors.push(`GPA ${gpa}`);
+    else gaps.push("GPA");
+  }
+
+  const holistic = computeHolisticExtracurricularScore(classified, programFocus);
+
+  for (const signal of holistic.signals) {
+    factors.push(signal);
+  }
+
+  const hasAnyPortfolio = achievements.length + projects.length + leadership.length + competitions.length + volunteering.length + certificates.length + education.length > 0;
+  if (!hasAnyPortfolio) gaps.push("Portfolio is empty");
+
+  let score = 0;
+  if (hasGpa && gpaRequired) score += 10;
+  if (hasSat && satConsidered) score += 10;
+  if (hasIelts && ieltsRequired) score += 10;
+
+  if (sat && sat >= 1400 && satConsidered) score += 15;
+  else if (sat && sat >= 1200 && satConsidered) score += 10;
+  else if (sat && satConsidered) score += 5;
+
+  if (act && act >= 30 && satConsidered) score += 15;
+  else if (act && act >= 24 && satConsidered) score += 10;
+  else if (act && satConsidered) score += 5;
+
+  if (ielts && ielts >= 7.0 && ieltsRequired) score += 15;
+  else if (ielts && ielts >= 6.0 && ieltsRequired) score += 10;
+  else if (ielts && ieltsRequired) score += 5;
+
+  score += holistic.score;
+
+  const ranking = (university.rankingContext || "").toLowerCase();
+  const acceptance = (university.acceptanceInfo || "").toLowerCase();
+  let multiplier = 1.0;
+  if (/qs\s*(top\s*)?10|qs\s*2|qs\s*3|qs\s*4|qs\s*8|qs\s*9|qs\s*11|qs\s*17|qs\s*22|qs\s*37/.test(ranking) || /очень высокий конкурс|very high|highly competitive/.test(acceptance)) {
+    multiplier = 0.6;
+  } else if (/qs\s*(50|51|100|101|200|251|300)/.test(ranking) || /высокий конкурс|competitive/.test(acceptance)) {
+    multiplier = 0.8;
+  } else if (/конкурс/.test(acceptance)) {
+    multiplier = 0.9;
+  }
+
+  const finalScore = Math.min(100, Math.round(score * multiplier));
+
+  let minPercent: number;
+  let maxPercent: number;
+  if (finalScore >= 80) { minPercent = 70; maxPercent = 90; }
+  else if (finalScore >= 60) { minPercent = 50; maxPercent = 70; }
+  else if (finalScore >= 40) { minPercent = 30; maxPercent = 50; }
+  else if (finalScore >= 20) { minPercent = 15; maxPercent = 35; }
+  else { minPercent = 5; maxPercent = 20; }
+
+  let requiredFields = 0;
+  let presentFields = 0;
+  if (satConsidered) { requiredFields++; if (hasSat) presentFields++; }
+  if (ieltsRequired) { requiredFields++; if (hasIelts) presentFields++; }
+  if (gpaRequired) { requiredFields++; if (hasGpa) presentFields++; }
+  requiredFields += 1;
+  if (hasAnyPortfolio) presentFields += 1;
+
+  const confidence: "High" | "Medium" | "Low" = requiredFields === 0 ? "Medium" : presentFields === requiredFields ? "High" : presentFields >= Math.ceil(requiredFields / 2) ? "Medium" : "Low";
+
+  return { available: true, min: minPercent, max: maxPercent, confidence, factors, gaps };
+}
 function buildExplanation(
   fitLevel: OverallFitLevel,
   confidence: ConfidenceLevel,
@@ -509,3 +811,4 @@ function buildExplanation(
 
   return `${fitLevel.toLowerCase()} для ${university.name}. Оценка основана на данных ${strengths}. Confidence: ${confidence === "High" ? "высокая" : confidence === "Medium" ? "средняя" : "низкая"} — добавьте больше данных для более точной рекомендации.`;
 }
+

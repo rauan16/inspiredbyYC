@@ -62,7 +62,10 @@ SYSTEM_PROMPT = """Ты — ULIE, ИИ-наставник для школьни�
 6. Если профиль пустой — попроси добавить информацию в портфолио и профиль.
 7. Опираться ТОЛЬКО на переданные данные о профиле и портфолие. Никаких «наведённых» предположений.
 8. Если спрашивают о шансах поступления — объясняй: насколько профиль соответствует требованиям, какие есть strengths и gaps, что нужно улучшить. Никогда не выдавай процент как «chance of admission».
-9. Никогда не упоминай конкретные даты дедлайнов, если они не переданы в контексте."""
+9. Никогда не упоминай конкретные даты дедлайнов, если они не переданы в контексте.
+ 10. ПЕРЕД тем как давать рекомендацию, проверь: если в портфолио или профиле уже есть IELTS, SAT, проекты, олимпиады или стажировки — НЕ предлагай их получить заново. Различай: уже выполнено / в процессе / отсутствует / можно улучшить.
+ 11. Интерпретируй Portfolio semantically: каждый activity имеет значение. Например: marathon = athletic achievement/discipline, startup = entrepreneurship/leadership/innovation, hackathon = technology/competition/problem-solving. Не считай activities просто количеством. Опиши что демонстрирует каждый activity, и как он relevant к программе/университету.
+ 12. Не допускай двойного счёта: один activity может иметь несколько категорий, но это не делает его несколькими independent achievements. Это один activity с несколькими attributes."""
 
 
 async def get_mentor_response(
@@ -101,8 +104,10 @@ async def get_mentor_response(
                 response = await client.post(
                     f"{settings.AI_API_BASE_URL}/chat/completions",
                     headers={
-                        "Authorization": f"Bearer {settings.AI_API_KEY}",
+                        "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
                         "Content-Type": "application/json",
+                        "HTTP-Referer": "https://ulys-gamma.vercel.app",
+                        "X-Title": "ULYS",
                     },
                     json={
                         "model": settings.AI_MODEL,
@@ -230,12 +235,49 @@ def _format_portfolio_context(portfolio: list[dict]) -> str:
     if not portfolio:
         return "Портфолио пустое"
     lines = []
+    seen = set()
     for item in portfolio:
+        key = ((item.get('title') or '') + ' ' + (item.get('description') or '')).strip().lower()
+        if key in seen:
+            continue
+        seen.add(key)
+
         line = f"- [{item.get('section', '?')}] {item.get('title', '')}"
         if item.get("date"):
             line += f" ({item['date']})"
         if item.get("description"):
             line += f" — {item['description']}"
+
+        text = ((item.get('title') or '') + ' ' + (item.get('description') or '')).lower()
+        signals = []
+        if any(k in text for k in ['startup', 'founder', 'business', 'entrepreneur']):
+            signals.append('entrepreneurship/leadership/innovation')
+        elif any(k in text for k in ['hackathon', 'competition', 'contest', 'olympiad', 'winner', '1st']):
+            signals.append('competition/achievement')
+        elif any(k in text for k in ['research', 'исследователь', 'lab', 'published']):
+            signals.append('research/academic')
+        elif any(k in text for k in ['volunteer', 'charity', 'community', 'service']):
+            signals.append('community/volunteering')
+        elif any(k in text for k in ['intern', 'experience', 'company']):
+            signals.append('professional experience')
+        elif any(k in text for k in ['marathon', 'sport', 'football', 'swim', 'athletic']):
+            signals.append('sports/achievement')
+        elif any(k in text for k in ['project', 'built', 'developed', 'created', 'app', 'application']):
+            signals.append('project/technology')
+        elif any(k in text for k in ['lead', 'organiz', 'headed', 'managed', 'president']):
+            signals.append('leadership')
+        elif any(k in text for k in ['art', 'music', 'theater', 'film', 'design', 'creative']):
+            signals.append('arts/creativity')
+        elif any(k in text for k in ['hobby', 'interest', 'club', 'personal']):
+            signals.append('personal interest')
+        elif any(k in text for k in ['international', 'exchange', 'abroad', 'global']):
+            signals.append('international experience')
+        elif any(k in text for k in ['certificate', 'certification']):
+            signals.append('certification')
+
+        if signals:
+            line += f" [signals: {', '.join(signals)}]"
+
         lines.append(line)
     return "\n".join(lines)
 

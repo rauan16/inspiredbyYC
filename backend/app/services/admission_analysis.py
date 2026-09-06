@@ -4,6 +4,7 @@ import asyncio
 import httpx
 from fastapi import HTTPException
 from app.config import settings
+from app.services.admission_estimate import compute_admission_estimate
 
 logger = logging.getLogger(__name__)
 
@@ -11,6 +12,8 @@ MAX_RETRIES = 5
 RETRY_DELAY_BASE = 3
 
 ADMISSION_ANALYST_PROMPT = """You are ULYS, an AI university admissions advisor. Analyze the student's complete profile against the selected university and program.
+
+CRITICAL: The system has already computed an authoritative admission estimate. You MUST use that estimate and explain it. Do NOT invent your own probability range.
 
 Your analysis must be structured as JSON with these exact keys:
 
@@ -51,15 +54,13 @@ CRITICAL RULES:
 2. If university data is unavailable, say "Official data unavailable" in the explanation.
 3. If student data is missing, mark the criterion as "MISSING" with explanation "Information missing."
 4. If a university does not publish a requirement, mark it "UNKNOWN".
-5. DO assign a numerical admission probability range when sufficient profile data exists (academic scores, test scores, portfolio). If insufficient data exists, set "available": false with explanation.
-6. If admission estimate is not available, set "available": false with explanation.
-7. Evaluate achievements and projects semantically — not by counting them.
-8. Consider the relevance of the student's profile to the selected program.
-9. Be conservative with estimates. A perfect SAT does NOT mean 95% admission chance.
-10. If the student meets the published minimum requirement, mark it as "MET".
-11. Never guarantee admission. Never output a fixed percentage as a guarantee.
-12. Do NOT include any prose outside the JSON. Return ONLY valid JSON.
-13. The JSON must be parseable. Do not include markdown code blocks or trailing text."""
+5. Use the PRE-COMPUTED ADMISSION ESTIMATE provided in the context. Do not calculate your own probability.
+6. Evaluate achievements and projects semantically — not by counting them.
+7. Consider the relevance of the student's profile to the selected program.
+8. If the student meets the published minimum requirement, mark it as "MET".
+9. Never guarantee admission. Never output a fixed percentage as a guarantee.
+10. Do NOT include any prose outside the JSON. Return ONLY valid JSON.
+11. The JSON must be parseable. Do not include markdown code blocks or trailing text."""
 
 
 def _format_student_profile(profile: dict, portfolio: list[dict]) -> str:
@@ -200,11 +201,24 @@ async def get_admission_analysis(
     student_context = _format_student_profile(student_profile, portfolio)
     university_context = _format_university_data(university, program)
 
+    deterministic_estimate = compute_admission_estimate(student_profile, portfolio, university)
+    estimate_context = f"""
+PRE-COMPUTED ADMISSION ESTIMATE (authoritative, use this exact range):
+  Admission: {deterministic_estimate['min']}–{deterministic_estimate['max']}%
+  Confidence: {deterministic_estimate['confidence']}
+  Factors: {', '.join(deterministic_estimate.get('factors', [])[:8])}
+  Gaps: {', '.join(deterministic_estimate.get('gaps', [])[:8])}
+"""
+
     user_prompt = f"""Analyze the student's profile for admission to the selected university and program.
 
 {student_context}
 
 {university_context}
+
+{estimate_context}
+
+CRITICAL INSTRUCTION: The admission estimate above is authoritative. Use it in your response. Do not calculate or invent a different probability range.
 
 Return your analysis as JSON only, following the exact schema specified in the system prompt. Consider all aspects: formal requirements, academic strength, extracurricular profile, portfolio/projects, and program-specific fit."""
 
@@ -270,6 +284,14 @@ Return your analysis as JSON only, following the exact schema specified in the s
 
                 result.setdefault("studentProfile", student_profile)
                 result.setdefault("universityData", university)
+                result["admissionEstimate"] = {
+                    "available": True,
+                    "min": deterministic_estimate["min"],
+                    "max": deterministic_estimate["max"],
+                    "confidence": deterministic_estimate["confidence"],
+                    "factors": deterministic_estimate.get("factors", []),
+                    "gaps": deterministic_estimate.get("gaps", []),
+                }
                 return result
 
         except httpx.TimeoutException:

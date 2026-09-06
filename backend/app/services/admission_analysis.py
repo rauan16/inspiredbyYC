@@ -284,11 +284,17 @@ Return your analysis as JSON only, following the exact schema specified in the s
 
                 result.setdefault("studentProfile", student_profile)
                 result.setdefault("universityData", university)
+                result.setdefault("requirementAnalysis", [])
+                result.setdefault("profileAnalysis", {"academic": {"rating": "INSUFFICIENT_DATA", "explanation": ""}, "extracurricular": {"rating": "INSUFFICIENT_DATA", "explanation": ""}, "portfolio": {"rating": "INSUFFICIENT_DATA", "explanation": ""}})
+                result.setdefault("overallAssessment", {"level": "INSUFFICIENT_DATA", "explanation": ""})
+                result.setdefault("weaknesses", [])
+                result.setdefault("recommendations", [])
                 result["admissionEstimate"] = {
                     "available": True,
                     "min": deterministic_estimate["min"],
                     "max": deterministic_estimate["max"],
                     "confidence": deterministic_estimate["confidence"],
+                    "explanation": f"Deterministic estimate based on profile and university data.",
                     "factors": deterministic_estimate.get("factors", []),
                     "gaps": deterministic_estimate.get("gaps", []),
                 }

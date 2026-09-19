@@ -1,44 +1,101 @@
-# ULYS — Phase 1 (Frontend Only)
+# ULYS
 
-EdTech platform helping Kazakhstani students discover opportunities, build a
-portfolio, get AI mentorship, and understand university fit.
+ULYS is a personalized university admission navigator that helps students understand where they can apply and what they need to do next.
 
-This is **Phase 1**: complete frontend, mock data only. No backend, no
-Supabase, no real auth, no AI API calls yet.
+## What ULYS Does
 
-## Getting started
+- Builds a student profile from grades, IELTS/SAT, interests, budget and country preferences
+- Recommends universities using ULYS Match
+- Explains profile strengths and gaps
+- Compares university options
+- Creates a personalized admission Roadmap
+- Shows the Next Best Action
+- Supports What-If scenarios for IELTS, SAT, budget, country and major
+- Provides contextual guidance through ULIE
 
-\`\`\`bash
+ULYS Match represents profile-university compatibility. It is not an admission probability.
+
+## How It Works
+
+Profile
+→ Diagnosis
+→ ULYS Match
+→ Compare
+→ Roadmap
+→ Next Best Action
+→ What-If
+→ ULIE
+
+## What-If
+
+Students can change one assumption without changing their real profile.
+
+For example:
+
+IELTS 6.5 → 8.0
+
+ULYS recalculates:
+- university matches
+- roadmap tasks
+- next best action
+
+This allows students to understand the consequences of a decision before making it.
+
+## Technology
+
+Frontend:
+- Next.js
+- React
+- TypeScript
+- Tailwind CSS
+
+Backend:
+- Python
+- FastAPI
+- SQLAlchemy
+- Alembic
+- JWT authentication
+
+AI:
+- OpenRouter / DeepSeek
+
+Core matching, roadmap, Next Best Action and What-If logic are deterministic.
+AI is used as an explanation and guidance layer.
+
+## LOCUS Startup Hackathon 2026
+
+Case 02 — Personalized University Admission Route.
+
+Pre-hackathon foundation:
+- basic ULYS infrastructure
+- authentication
+- reusable technical components
+
+Developed during LOCUS 2026:
+- redesigned admission journey
+- profile/onboarding flow
+- profile diagnosis
+- explainable ULYS Match
+- university comparison
+- personalized Roadmap
+- Next Best Action
+- What-If simulation
+- integration into one admission journey
+
+## Running Locally
+
+Frontend:
+
 npm install
 npm run dev
-\`\`\`
 
-Open http://localhost:3000
+Backend:
 
-## Structure
+Use the existing backend requirements/environment configuration and start the FastAPI application with the project's configured command.
 
-- \`/\` — marketing landing page
-- \`/login\`, \`/signup\`, \`/forgot-password\`, \`/onboarding\` — auth UI (no real auth yet)
-- \`/app\` — the authenticated application shell (sidebar on desktop, bottom nav on mobile)
-  - \`/app\` — dashboard
-  - \`/app/opportunities\`, \`/app/opportunities/[id]\` — Opportunity Hub
-  - \`/app/mentor\` — AI Mentor (Uli) chat, canned responses for now
-  - \`/app/portfolio\` — Smart Portfolio builder (add/edit/delete/reorder)
-  - \`/app/universities\`, \`/app/universities/[id]\` — University / Profile Analysis
-  - \`/app/saved\` — saved opportunities
-  - \`/app/profile\` — student profile
-  - \`/app/settings\` — account, notifications, preferences
-  - \`/app/search\` — global search across opportunities and universities
+Required environment variables must be configured locally.
+Never commit .env files or API keys.
 
-All data lives in \`src/data/*.ts\` — swap for real API calls in Phase 2.
+## Project Status
 
-## Design system
-
-- Colors, radii, fonts are defined as CSS variables in \`src/app/globals.css\`
-- Palette: warm paper background, ink text, red / yellow / blue / violet brand colors
-- Fonts: Unbounded (display), Inter (body), JetBrains Mono (data/labels) — self-hosted via \`@fontsource\`
-
-## Phase 2 (not started)
-
-Supabase, Postgres schema, RLS, Storage, real auth, AI API integration,
-payments — see the product brief for full scope.
+Working MVP built for LOCUS Startup Hackathon 2026.

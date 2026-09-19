@@ -1,31 +1,62 @@
-"use client";
-
-import * as Accordion from "@radix-ui/react-accordion";
 import { ChevronDown } from "lucide-react";
-import { faqItems } from "@/data/student";
-import { SectionHeading } from "./SectionHeading";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@radix-ui/react-accordion";
+import { LandingSectionHeading } from "./LandingSectionHeading";
+
+const questions = [
+  {
+    question: "Что такое ULYS?",
+    answer: "ULYS — AI-сервис, который помогает абитуриенту подобрать подходящие университеты и превратить цель поступления в понятный пошаговый маршрут.",
+  },
+  {
+    question: "Как ULYS подбирает университеты?",
+    answer: "ULYS учитывает данные профиля: академические результаты, интересы, экзамены, бюджет, предпочтения по странам и образовательные цели.",
+  },
+  {
+    question: "ULYS гарантирует поступление?",
+    answer: "Нет. ULYS помогает анализировать варианты и планировать поступление, но не гарантирует решение университета.",
+  },
+  {
+    question: "Что означает ULYS Match?",
+    answer: "Это показатель соответствия университета или программы данным и предпочтениям профиля. Это не вероятность поступления.",
+  },
+  {
+    question: "Можно ли изменить свой профиль?",
+    answer: "Да. При изменении ключевых параметров рекомендации и маршрут могут быть пересчитаны.",
+  },
+  {
+    question: "Что делает ULIE?",
+    answer: "ULIE — AI-помощник внутри ULYS, который помогает понимать рекомендации и работать с персональным маршрутом.",
+  },
+];
 
 export function FAQ() {
   return (
-    <section id="faq" className="py-20 md:py-24">
-      <div className="container-ulys">
-        <SectionHeading title="Частые вопросы" />
+    <section id="faq" className="landing-faq" aria-labelledby="landing-faq-title">
+      <div className="landing-container landing-faq__inner">
+        <LandingSectionHeading
+          align="center"
+          title={<span id="landing-faq-title">Частые вопросы</span>}
+          description="Коротко о том, как устроен ULYS и что означают его рекомендации."
+        />
 
-        <Accordion.Root type="single" collapsible className="mt-10 divide-y divide-line border-t border-line">
-          {faqItems.map((item, i) => (
-            <Accordion.Item key={i} value={`item-${i}`}>
-              <Accordion.Header>
-                <Accordion.Trigger className="group flex w-full items-center justify-between gap-4 py-5 text-left transition-colors duration-200 hover:text-red active:text-red">
-                  <span className="font-display text-[15px] font-medium">{item.question}</span>
-                  <ChevronDown className="h-4.5 w-4.5 shrink-0 text-ink-soft transition-transform duration-300 ease-out group-data-[state=open]:rotate-180" />
-                </Accordion.Trigger>
-              </Accordion.Header>
-              <Accordion.Content className="overflow-hidden pb-0 text-[14px] leading-relaxed text-ink-soft data-[state=open]:pb-5 data-[state=open]:animate-[accordion-down_280ms_ease-out] data-[state=closed]:animate-[accordion-up_220ms_ease-out]">
-                {item.answer}
-              </Accordion.Content>
-            </Accordion.Item>
+        <Accordion type="single" collapsible className="landing-accordion">
+          {questions.map((item) => (
+            <AccordionItem key={item.question} value={item.question} className="landing-accordion__item">
+              <AccordionTrigger className="landing-accordion__trigger">
+                <span>{item.question}</span>
+                <ChevronDown className="landing-accordion__chevron" aria-hidden="true" />
+              </AccordionTrigger>
+              <AccordionContent className="landing-accordion__content">
+                <p>{item.answer}</p>
+              </AccordionContent>
+            </AccordionItem>
           ))}
-        </Accordion.Root>
+        </Accordion>
       </div>
     </section>
   );

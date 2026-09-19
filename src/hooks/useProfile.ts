@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import { getAccount, saveAccount, StoredAccount } from "@/lib/account";
+import { getAccount, normalizeAccount, saveAccount, serializeProfileUpdate, StoredAccount } from "@/lib/account";
 import { enqueue } from "@/lib/sync";
 
 const PROFILE_CACHE_KEY = "ulys-profile-cache";
@@ -42,30 +42,7 @@ export function useProfile() {
     try {
       setLoading(true);
       const remote = await api.get<Record<string, unknown>>("/api/profile");
-      const mapped: Partial<StoredAccount> = {};
-
-      if (remote.name !== undefined) mapped.name = remote.name as string;
-      if (remote.grade !== undefined) mapped.grade = remote.grade as string;
-      if (remote.location !== undefined) mapped.location = remote.location as string;
-      if (remote.bio !== undefined) mapped.bio = remote.bio as string;
-      if (remote.interests !== undefined) mapped.interests = remote.interests as string[];
-      if (remote.goals !== undefined) mapped.goals = remote.goals as string[];
-      if (remote.portfolioStrength !== undefined) {
-        mapped.portfolioStrength = remote.portfolioStrength as number;
-      } else if (remote.portfolio_strength !== undefined) {
-        mapped.portfolioStrength = remote.portfolio_strength as number;
-      }
-      if (remote.avatarInitials !== undefined) {
-        mapped.avatarInitials = remote.avatarInitials as string;
-      } else if (remote.avatar_initials !== undefined) {
-        mapped.avatarInitials = remote.avatar_initials as string;
-      }
-      if (remote.academicInfo !== undefined) {
-        mapped.academicInfo = remote.academicInfo as NonNullable<StoredAccount["academicInfo"]>;
-      } else if (remote.academic_info !== undefined) {
-        mapped.academicInfo = remote.academic_info as NonNullable<StoredAccount["academicInfo"]>;
-      }
-
+      const mapped = normalizeAccount(remote);
       setProfile(mapped);
       setCachedProfile(mapped);
       saveAccount(mapped);
@@ -80,21 +57,31 @@ export function useProfile() {
   }, [fetchProfile]);
 
   const updateProfile = useCallback(
-    async (updates: Partial<StoredAccount>) => {
+    async (updates: Partial<StoredAccount>): Promise<boolean> => {
       const current = getAccount();
-      const merged = { ...current, ...updates };
+      const merged = normalizeAccount({
+        ...current,
+        ...updates,
+        academicInfo: {
+          ...current.academicInfo,
+          ...(updates.academicInfo ?? {}),
+        },
+      });
+      const payload = serializeProfileUpdate(updates);
       setProfile(merged);
-      saveAccount(updates);
+      saveAccount(merged);
       setCachedProfile(merged);
 
       try {
-        const remote = await api.patch<Partial<StoredAccount>>("/api/profile", updates);
-        setProfile(remote);
-        setCachedProfile(remote);
-        saveAccount(remote);
+        const remote = await api.patch<Record<string, unknown>>("/api/profile", payload);
+        const mapped = normalizeAccount(remote);
+        setProfile(mapped);
+        setCachedProfile(mapped);
+        saveAccount(mapped);
       } catch {
-        enqueue({ type: "profile_update", payload: updates });
+        enqueue({ type: "profile_update", payload });
       }
+      return true;
     },
     []
   );

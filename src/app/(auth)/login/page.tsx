@@ -28,8 +28,8 @@ export default function LoginPage() {
     setError("");
 
     try {
-      await login(email, password);
-      router.push("/app");
+      const onboarded = await login(email, password);
+      router.push(onboarded ? "/app" : "/onboarding");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Ошибка входа";
       setError(message);

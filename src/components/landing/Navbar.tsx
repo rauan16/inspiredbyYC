@@ -1,83 +1,93 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useState } from "react";
 import { Menu, X } from "lucide-react";
-import { ButtonLink } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 
-const links = [
-  { href: "/#demo", label: "Демо" },
-  { href: "/#problem", label: "Почему это важно" },
-  { href: "/#product", label: "Решение" },
-  { href: "/#how-it-works", label: "Схема" },
+const navItems = [
+  { label: "Возможности", href: "#benefits" },
+  { label: "Как это работает", href: "#how-it-works" },
+  { label: "Преимущества", href: "#benefits" },
+  { label: "Отзывы", href: "#reviews" },
+  { label: "FAQ", href: "#faq" },
 ];
 
 export function Navbar() {
-  const [open, setOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 12);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-line/70 bg-paper/85 backdrop-blur-md">
-      <div className="container-ulys flex h-16 items-center justify-between">
-        <Link href="/" className="font-display text-[20px] font-bold tracking-tight">
-          ULYS
+    <header className={cn("landing-navbar", scrolled && "landing-navbar--scrolled")}>
+      <div className="landing-container landing-navbar__inner">
+        <Link href="/" className="landing-wordmark" aria-label="ULYS — на главную">
+          <span className="landing-wordmark__icon" aria-hidden="true">U</span>
+          <span>ULYS</span>
         </Link>
 
-        <nav className="hidden items-center gap-6 lg:flex">
-          {links.map((l) => (
-            <a
-              key={l.href}
-              href={l.href}
-              className="text-[13.5px] font-medium text-ink-soft transition-colors hover:text-ink"
-            >
-              {l.label}
-            </a>
+        <nav className="landing-desktop-nav" aria-label="Основная навигация">
+          {navItems.map((item) => (
+            <Link key={item.label} href={item.href} className="landing-nav-link">
+              {item.label}
+            </Link>
           ))}
         </nav>
 
-        <div className="hidden items-center gap-2 lg:flex">
-          <ButtonLink href="/login" variant="tertiary" size="md">
-            Войти
-          </ButtonLink>
-          <ButtonLink href="/signup" variant="primary" size="md">
-            Начать
-          </ButtonLink>
+        <div className="landing-navbar__actions">
+          <Link href="/signup" className="landing-button landing-button--primary landing-button--navbar">
+            Начать бесплатно
+          </Link>
+          <button
+            type="button"
+            className="landing-menu-toggle"
+            aria-label={menuOpen ? "Закрыть меню" : "Открыть меню"}
+            aria-expanded={menuOpen}
+            aria-controls="landing-mobile-menu"
+            onClick={() => setMenuOpen((value) => !value)}
+          >
+            {menuOpen ? <X aria-hidden="true" /> : <Menu aria-hidden="true" />}
+          </button>
         </div>
-
-        <button
-          className="flex h-10 w-10 items-center justify-center rounded-full lg:hidden"
-          onClick={() => setOpen((o) => !o)}
-          aria-label={open ? "Закрыть меню" : "Открыть меню"}
-          aria-expanded={open}
-        >
-          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
       </div>
 
       <div
-        className={cn(
-          "overflow-hidden border-t border-line/70 bg-paper transition-[max-height] duration-300 lg:hidden",
-          open ? "max-h-[420px]" : "max-h-0 border-t-0"
-        )}
+        id="landing-mobile-menu"
+        className={cn("landing-mobile-menu", menuOpen && "landing-mobile-menu--open")}
+        hidden={!menuOpen}
       >
-        <nav className="container-ulys flex flex-col gap-1 py-4">
-          {links.map((l) => (
-            <a
-              key={l.href}
-              href={l.href}
-              onClick={() => setOpen(false)}
-              className="rounded-lg px-2 py-2.5 text-[14.5px] font-medium text-ink-soft hover:bg-ink/5 hover:text-ink"
+        <nav className="landing-container" aria-label="Мобильная навигация">
+          {navItems.map((item) => (
+            <Link
+              key={item.label}
+              href={item.href}
+              className="landing-mobile-nav-link"
+              onClick={() => setMenuOpen(false)}
             >
-              {l.label}
-            </a>
+              {item.label}
+            </Link>
           ))}
-          <div className="mt-2 flex flex-col gap-2 px-2">
-            <ButtonLink href="/login" variant="secondary" size="md" className="w-full">
+          <div className="landing-mobile-menu__actions">
+            <Link href="/login" className="landing-button landing-button--secondary" onClick={() => setMenuOpen(false)}>
               Войти
-            </ButtonLink>
-            <ButtonLink href="/signup" variant="primary" size="md" className="w-full">
-              Начать
-            </ButtonLink>
+            </Link>
+            <Link href="/signup" className="landing-button landing-button--primary" onClick={() => setMenuOpen(false)}>
+              Начать бесплатно
+            </Link>
           </div>
         </nav>
       </div>

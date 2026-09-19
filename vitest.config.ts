@@ -4,6 +4,7 @@ import { resolve } from 'path';
 export default defineConfig({
   test: {
     environment: 'jsdom',
+    exclude: ['**/node_modules/**', '**/.kilo/**', '**/.git/**'],
   },
   resolve: {
     alias: {

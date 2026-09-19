@@ -10,58 +10,29 @@ from app.services.admission_estimate import compute_admission_estimate
 logger = logging.getLogger(__name__)
 
 
-MAX_RETRIES = 5
-RETRY_DELAY_BASE = 3  # seconds, doubled each retry
+MAX_RETRIES = 3
+RETRY_DELAY_BASE = 2  # seconds
+AI_TIMEOUT = 90.0  # seconds
+
+# Base max_tokens, reduced on retry
+BASE_MAX_TOKENS = 20
 
 
-SYSTEM_PROMPT = """Ты — ULIE, ИИ-наставник. Отвечай кратко, по делу, на русском.
+SYSTEM_PROMPT = """Ты — ULIE, ИИ-наставник для абитуриентов в университеты. Отвечай кратко на русском языке.
 
-Правила:
-1. Не выдумывай факты, цифры, требования, if not in context.
-2. Если данных недостаточно — «Недостаточно данных».
-3. Если SAT/IELTS/проекты/олимпиады уже есть — НЕ предлагай их снова.
-4. Portfolio semantics: startup = entrepreneurship/leadership/innovation, hackathon = technology/competition, marathon = sports/discipline.
-5. Не допускай двойного счёта: один activity может иметь несколько категорий, но это не делает его несколькими independent achievements.
-6. Никогда не выдавай процент поступления как проверенную статистику. Используй только PRE-COMPUTED ADMISSION ESTIMATE из контекста.
-7. Для анализа поступления используй структуру ONE-SHOT (см. контекст).
+Ты получаешь ТОЛЬКО досьйе студента (профиль, портфолио, рекомендации ULYS, roadmap) — объясняй, опирайся на эти данные.
 
-ONE-SHOT ANALYSIS (когда пользователь спрашивает о конкретном университете/программе):
-🎯 Admission: XX–YY%
-Confidence: High/Medium/Low
-
-📚 Academic fit
-- GPA: требуется → есть → оценка
-- SAT/ACT: требуется → есть → оценка (только если university его учитывает)
-- English: требуется → есть → оценка
-
-💻 [Program] fit
-- Объясни relevance каждого activity конкретно к программе
-- Full-stack dev → strong direct CS relevance
-- Hackathon win → strong technical/competition signal
-- Technical startup → entrepreneurship + technology + initiative
-
-🚀 Extracurricular fit
-- Сильные сигналы: entrepreneurship, technology, competitions, leadership, research, sports, projects
-- Без double-counting
-
-🎓 Scholarship / Grant
-- Доступные scholarships из контекста
-- Конкурентоспособность: High/Moderate/Low
-- НЕ придумывай проценты для scholarship, если нет данных
-
-⚠️ Weaknesses / Gaps: 2–4 пункта
-📈 Best next actions: 1–3 пункта
-**Verdict:** 2–4 предложения
-
-Ограничения:
-- Strengths: max 4 bullets
-- Weaknesses: max 3 bullets
-- Next actions: max 3 bullets
-- Academic: max 3–5 lines
-- CS fit: max 4 bullets
-- Scholarship: max 5 lines
-- Verdict: max 3 sentences
-- Не повторяй информацию"""
+ЖЕСТКИЕ ПРАВИЛА (не выдумывай под любую цену):
+1. Никогда не выдумывай требования вузов (SAT, GPA, IELTS, язык и т.д.). Используй только те данные, которые есть в контексте.
+2. Никогда не выдумывай сроки подачи, дедлайны, стоимость обучения (tuition) или стипендии. 
+3. Никогда не выдумывай вероятности зачисления, проценты шансов, admission estimates.
+4. Никогда не выдумывай задачи roadmap — только существующие из контекста.
+5. Никогда не выдумывай имена вузов, программ или требований.
+6. Если данные отсутствуют в контексте — скажи об этом честно: «У меня нет данных, чтобы оценить/оценить это».
+7. ULYS Match — это совместимость профиля с программой, а не вероятность зачисения. Объясняй эту разницу.
+8. Ссылайся на конкретные данные из контекста (названия вузов, цены, требования, задачи) — не обобщайся.
+9. Давай actionable советы, основанные на реальных пробелах и рекомендациях ULYS.
+"""
 
 
 async def get_mentor_response(
@@ -70,7 +41,12 @@ async def get_mentor_response(
     profile: dict | None = None,
     portfolio: list[dict] | None = None,
     universities: list[dict] | None = None,
+    recommendations: list[dict] | None = None,
+    roadmap: dict | None = None,
 ) -> str:
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"get_mentor_response called: message={student_message}, profile={profile}, portfolio_len={len(portfolio) if portfolio else 0}, universities_len={len(universities) if universities else 0}, recommendations_len={len(recommendations) if recommendations else 0}, roadmap_tasks={len(roadmap.get('tasks', [])) if roadmap else 0}")
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
 
     context_parts = []
@@ -80,6 +56,7 @@ async def get_mentor_response(
         context_parts.append(_format_portfolio_context(portfolio))
 
     target_university = None
+    needs_universities = False
     if universities:
         msg_lower = student_message.lower()
         for uni in universities:
@@ -87,13 +64,23 @@ async def get_mentor_response(
             if uni_name and uni_name.lower() in msg_lower:
                 target_university = uni
                 break
+        
+        # Only include universities for SPECIFIC university name mentions
+        specific_uni_keywords = ['imperial', 'mit', 'stanford', 'harvard', 'oxford', 'cambridge', 'eth', 'nus', 'ntu', 'university of']
+        needs_universities = any(kw in msg_lower for kw in specific_uni_keywords)
 
         if target_university:
             context_parts.append(_format_target_university_context(target_university))
             estimate = compute_admission_estimate(profile or {}, portfolio or [], target_university)
             context_parts.append(_format_estimate_context(estimate))
-        else:
+        elif needs_universities:
             context_parts.append(_format_universities_context(universities))
+
+    if recommendations:
+        context_parts.append(_format_recommendations_context(recommendations))
+
+    if roadmap:
+        context_parts.append(_format_roadmap_context(roadmap))
 
     if context_parts:
         messages.append({
@@ -108,9 +95,10 @@ async def get_mentor_response(
     messages.append({"role": "user", "content": student_message})
 
     last_error = None
+    max_tokens = BASE_MAX_TOKENS
     for attempt in range(MAX_RETRIES):
         try:
-            async with httpx.AsyncClient(timeout=60.0) as client:
+            async with httpx.AsyncClient(timeout=AI_TIMEOUT) as client:
                 response = await client.post(
                     f"{settings.AI_API_BASE_URL}/chat/completions",
                     headers={
@@ -122,7 +110,7 @@ async def get_mentor_response(
                     json={
                         "model": settings.AI_MODEL,
                         "messages": messages,
-                        "max_tokens": 1024,
+                        "max_tokens": max_tokens,
                         "temperature": 0.7,
                     },
                 )
@@ -139,6 +127,23 @@ async def get_mentor_response(
                 )
                 await asyncio.sleep(delay)
                 continue
+
+            if response.status_code == 402:
+                # Token limit exceeded - reduce max_tokens and retry
+                if attempt < MAX_RETRIES - 1:
+                    max_tokens = max_tokens // 2
+                    logger.warning(
+                        f"AI provider token limit (402). Reducing max_tokens to {max_tokens} "
+                        f"and retrying (attempt {attempt + 1}/{MAX_RETRIES})"
+                    )
+                    await asyncio.sleep(RETRY_DELAY_BASE)
+                    continue
+                else:
+                    logger.error(f"AI provider error: status=402, token limit exceeded even after retries")
+                    raise HTTPException(
+                        status_code=502,
+                        detail="AI service error: token limit",
+                    )
 
             if response.status_code != 200:
                 safe_detail = ""
@@ -167,11 +172,14 @@ async def get_mentor_response(
             return choices[0].get("message", {}).get("content", "")
 
         except httpx.TimeoutException:
-            logger.error("AI provider error: timeout (60s)")
+            logger.error("AI provider error: timeout")
             last_error = "timeout"
         except httpx.ConnectError:
             logger.error("AI provider error: connection failed")
             last_error = "connection"
+        except httpx.ReadTimeout:
+            logger.error("AI provider error: read timeout")
+            last_error = "timeout"
 
         if attempt < MAX_RETRIES - 1 and last_error:
             delay = RETRY_DELAY_BASE * (2 ** attempt)
@@ -196,45 +204,17 @@ def _format_profile_context(profile: dict) -> str:
     parts = []
     if profile.get("name"):
         parts.append(f"Имя: {profile['name']}")
-    if profile.get("grade"):
-        parts.append(f"Класс: {profile['grade']}")
-    if profile.get("location"):
-        parts.append(f"Город: {profile['location']}")
-    if profile.get("bio"):
-        parts.append(f"О себе: {profile['bio']}")
-    if profile.get("interests"):
-        parts.append(f"Интересы: {', '.join(profile['interests'])}")
-    if profile.get("goals"):
-        parts.append(f"Цели: {', '.join(profile['goals'])}")
-
     academic = profile.get("academicInfo")
     if academic:
-        parts.append("Академическая информация:")
-        if academic.get("school"):
-            parts.append(f"  Школа: {academic['school']}")
-        if academic.get("curriculum"):
-            parts.append(f"  Курriculum: {academic['curriculum']}")
         if academic.get("intendedMajor"):
-            parts.append(f"  Целевой major: {academic['intendedMajor']}")
+            parts.append(f"Major: {academic['intendedMajor']}")
         if academic.get("gpa"):
-            parts.append(f"  GPA: {academic['gpa']}")
+            parts.append(f"GPA: {academic['gpa']}")
         if academic.get("sat"):
-            parts.append(f"  SAT: {academic['sat']}")
-        if academic.get("act"):
-            parts.append(f"  ACT: {academic['act']}")
+            parts.append(f"SAT: {academic['sat']}")
         if academic.get("ielts"):
-            parts.append(f"  IELTS: {academic['ielts']}")
-        if academic.get("toefl"):
-            parts.append(f"  TOEFL: {academic['toefl']}")
-        if academic.get("graduationYear"):
-            parts.append(f"  Год выпуска: {academic['graduationYear']}")
-
-    if not profile.get("academicInfo"):
-        parts.append("Академическая информация: не указана")
-
-    if not parts:
-        return "Профиль не заполнен"
-    return "\n".join(parts)
+            parts.append(f"IELTS: {academic['ielts']}")
+    return "; ".join(parts) if parts else "Профиль пуст"
 
 
 def _format_portfolio_context(portfolio: list[dict]) -> str:
@@ -288,64 +268,104 @@ def _format_portfolio_context(portfolio: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def _format_universities_context(universities: list[dict]) -> str:
-    if not universities:
-        return "Университеты: не указаны"
-    lines = ["Университеты:"]
-    for uni in universities:
-        parts = [f"- {uni.get('name', '?')}"]
-        if uni.get("languageRequirements"):
-            parts.append(f"язык={uni['languageRequirements']}")
-        if uni.get("satRequirements"):
-            parts.append(f"SAT/ACT={uni['satRequirements']}")
-        if uni.get("gpaRequirements"):
-            parts.append(f"GPA={uni['gpaRequirements']}")
-        if uni.get("majors"):
-            parts.append(f"majors={', '.join(uni['majors'])}")
-        if uni.get("scholarshipAvailability"):
-            parts.append("scholarship=available")
-        lines.append("; ".join(parts))
+def _format_recommendations_context(recommendations: list[dict]) -> str:
+    if not recommendations:
+        return "ULYS Match: рекомендации не найдены — профиль может быть неполным."
+    recs = recommendations[:5]
+    lines = ["ULYS MATCH RECOMMENDATIONS:"]
+    for rec in recs:
+        score = rec.get("match_score", 0)
+        category = rec.get("category", "")
+        name = rec.get("name", "?")
+        country = rec.get("country", "")
+        program = rec.get("program", "")
+        reasons = rec.get("reasons", [])
+        gaps = rec.get("gaps", [])
+        next_actions = rec.get("next_actions", [])
+
+        lines.append(f"  - {name} ({country}), программа: {program}")
+        lines.append(f"    Match Score: {score}% | Категория: {category}")
+        lines.append(f"    Причины: {'; '.join(reasons[:3]) if reasons else 'нет данных'}")
+        if gaps:
+            lines.append(f"    Пробелы: {'; '.join(gaps[:3])}")
+        if next_actions:
+            lines.append(f"    След. действия: {'; '.join(next_actions[:3])}")
     return "\n".join(lines)
 
 
+def _format_roadmap_context(roadmap: dict) -> str:
+    tasks = roadmap.get("tasks", [])
+    next_best = roadmap.get("next_best_action")
+    completeness = roadmap.get("profile_completeness", 0)
+
+    lines = [
+        "ROADMAP:",
+        f"  Полнота профиля: {completeness}%",
+        f"  Всего задач: {len(tasks)}",
+    ]
+
+    if next_best:
+        lines.append("")
+        lines.append("  СЛЕДУЮЩИЙ ШАГ (Next Best Action):")
+        lines.append(f"    Задача: {next_best.get('title', '')}")
+        lines.append(f"    Категория: {next_best.get('category', '')}")
+        lines.append(f"    Приоритет: {next_best.get('priority', '')}")
+        target_date = next_best.get("target_date")
+        if target_date:
+            lines.append(f"    Срок: {target_date}")
+        lines.append(f"    Причина: {next_best.get('reason', '')}")
+
+    if tasks:
+        lines.append("")
+        lines.append("  АКТИВНЫЕ ЗАДАЧИ:")
+        for t in tasks[:8]:
+            status = t.get("status", "pending")
+            if status == "completed":
+                continue
+            lines.append(
+                f"    - [{t.get('priority', '')}] {t.get('title', '')} "
+                f"(категория: {t.get('category', '')}, статус: {status}, "
+                f"срок: {t.get('target_date', 'не указан')})"
+            )
+
+    return "\n".join(lines)
+
+
+def _format_universities_context(universities: list[dict]) -> str:
+    if not universities:
+        return "Университеты: не указаны"
+    universities = universities[:2]
+    lines = []
+    for uni in universities:
+        parts = [uni.get('name', '?')]
+        if uni.get("country"):
+            parts.append(uni['country'])
+        if uni.get("satRequirements"):
+            parts.append(f"SAT={uni['satRequirements']}")
+        if uni.get("gpaRequirements"):
+            parts.append(f"GPA={uni['gpaRequirements']}")
+        lines.append("; ".join(parts))
+    return "Университеты: " + " | ".join(lines)
+
+
 def _format_target_university_context(university: dict) -> str:
-    parts = [f"ТАРГЕТНЫЙ УНИВЕРСИТЕТ: {university.get('name', '?')}"]
+    parts = [f"ТАРГЕТ: {university.get('name', '?')}"]
     if university.get("country"):
-        parts.append(f"  Страна: {university['country']}")
+        parts.append(f"Страна: {university['country']}")
     if university.get("location"):
-        parts.append(f"  Локация: {university['location']}")
-    if university.get("rankingContext"):
-        parts.append(f"  Рейтинг: {university['rankingContext']}")
-    if university.get("acceptanceInfo"):
-        parts.append(f"  Приём: {university['acceptanceInfo']}")
+        parts.append(f"Локация: {university['location']}")
     if university.get("majors"):
-        parts.append(f"  Программы: {', '.join(university['majors'])}")
-    if university.get("undergraduatePrograms"):
-        parts.append(f"  Undergraduate: {', '.join(university['undergraduatePrograms'])}")
+        parts.append(f"Программы: {', '.join(university['majors'][:2])}")
     if university.get("languageRequirements"):
-        parts.append(f"  Язык: {university['languageRequirements']}")
+        parts.append(f"Язык: {university['languageRequirements']}")
     if university.get("satRequirements"):
-        parts.append(f"  SAT/ACT: {university['satRequirements']}")
+        parts.append(f"SAT: {university['satRequirements']}")
     if university.get("gpaRequirements"):
-        parts.append(f"  GPA: {university['gpaRequirements']}")
-    if university.get("requirements"):
-        parts.append(f"  Требования: {'; '.join(university['requirements'])}")
-    if university.get("curriculumRequirements"):
-        parts.append(f"  Curriculum: {', '.join(university['curriculumRequirements'])}")
-    if university.get("subjectRequirements"):
-        parts.append(f"  Subjects: {', '.join(university['subjectRequirements'])}")
-    if university.get("internationalRequirements"):
-        parts.append(f"  International: {', '.join(university['internationalRequirements'])}")
-    if university.get("kazakhstanRequirements"):
-        parts.append(f"  Kazakhstan: {', '.join(university['kazakhstanRequirements'])}")
+        parts.append(f"GPA: {university['gpaRequirements']}")
     if university.get("scholarshipAvailability"):
-        parts.append("  Scholarship: Available")
+        parts.append("Стипендия: есть")
     if university.get("tuition"):
-        parts.append(f"  Tuition: {university['tuition']}")
-    if university.get("financialAid"):
-        parts.append(f"  Financial Aid: {university['financialAid']}")
-    if university.get("officialAdmissionsUrl"):
-        parts.append(f"  URL: {university['officialAdmissionsUrl']}")
+        parts.append(f"Tuition: {university['tuition']}")
     return "\n".join(parts)
 
 
@@ -353,14 +373,14 @@ def _format_estimate_context(estimate: dict) -> str:
     if not estimate.get("available"):
         return ""
     parts = [
-        "PRE-COMPUTED ADMISSION ESTIMATE (authoritative, используй именно этот диапазон):",
-        f"  Admission: {estimate['min']}–{estimate['max']}%",
+        "FIT SCORE:",
+        f"  Profile-University Fit: {estimate['min']}–{estimate['max']}",
         f"  Confidence: {estimate['confidence']}",
     ]
     if estimate.get("factors"):
-        parts.append(f"  Strong factors: {', '.join(estimate['factors'][:8])}")
+        parts.append(f"  Strengths: {', '.join(estimate['factors'][:4])}")
     if estimate.get("gaps"):
-        parts.append(f"  Gaps: {', '.join(estimate['gaps'][:8])}")
+        parts.append(f"  Gaps: {', '.join(estimate['gaps'][:4])}")
     return "\n".join(parts)
 
 

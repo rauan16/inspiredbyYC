@@ -19,5 +19,7 @@ services:
         sync: false
       - key: CORS_ALLOWED_ORIGINS
         sync: false
+      - key: SECRET_KEY
+        sync: false
     healthCheckPath: /health
     autoDeploy: true

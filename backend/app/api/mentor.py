@@ -6,6 +6,8 @@ from app.auth import get_current_user
 from app.database import get_db
 from app.schemas.mentor import MentorMessageCreate, MentorMessageResponse
 from app.services.ai import get_mentor_response
+from app.services.matching import get_recommendations_for_profile
+from app.services.roadmap import generate_roadmap
 
 router = APIRouter(prefix="/api/mentor", tags=["mentor"])
 
@@ -115,18 +117,48 @@ async def send_message(
 
     conn.close()
 
+    # Compute deterministic matching recommendations and roadmap for AI context
+    recommendations = get_recommendations_for_profile(profile, portfolio, universities, limit=5)
+    recommendations_serialized = [
+        {
+            "university_id": r.university_id,
+            "name": r.name,
+            "country": r.country,
+            "city": r.city,
+            "program": r.program,
+            "match_score": r.match_score,
+            "category": r.category,
+            "reasons": r.reasons,
+            "strengths": r.strengths,
+            "gaps": r.gaps,
+            "next_actions": r.next_actions,
+        }
+        for r in recommendations
+    ]
+
+    roadmap_obj = generate_roadmap(profile, portfolio)
+    roadmap_serialized = roadmap_obj.model_dump()
+
     # Get AI response
     try:
+        import logging
+        logging.basicConfig(level=logging.DEBUG)
+        logger = logging.getLogger(__name__)
+        logger.info(f"Calling get_mentor_response with message={message.content}, profile={profile}, portfolio={portfolio}, universities={len(universities)}, recommendations={len(recommendations_serialized)}, roadmap_tasks={len(roadmap_serialized.get('tasks', []))}")
         ai_content = await get_mentor_response(
             student_message=message.content,
             conversation_history=conversation_history,
             profile=profile,
             portfolio=portfolio,
             universities=universities,
+            recommendations=recommendations_serialized,
+            roadmap=roadmap_serialized,
         )
+        logger.info(f"AI response: {ai_content[:100]}")
     except HTTPException:
         raise
     except Exception as e:
+        logger.exception("Unexpected error in mentor endpoint")
         raise HTTPException(
             status_code=502,
             detail="AI service unavailable. Please try again later.",

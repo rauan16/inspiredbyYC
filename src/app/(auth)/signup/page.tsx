@@ -34,7 +34,12 @@ export default function SignupPage() {
       await signup(email, password, name);
       router.push("/onboarding");
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Ошибка регистрации";
+      const isNetworkError = err instanceof Error && err.message === "Failed to fetch";
+      const message = isNetworkError
+        ? "Не удалось подключиться к серверу. Попробуй ещё раз."
+        : err instanceof Error
+          ? err.message
+          : "Ошибка регистрации";
       setError(message);
     } finally {
       setLoading(false);

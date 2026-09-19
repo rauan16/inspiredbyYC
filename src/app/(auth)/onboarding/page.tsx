@@ -1,5 +1,12 @@
+import { Suspense } from "react";
 import { OnboardingFlow } from "@/components/auth/OnboardingFlow";
 
-export default function OnboardingPage() {
-  return <OnboardingFlow />;
+function OnboardingPage() {
+  return (
+    <Suspense fallback={null}>
+      <OnboardingFlow />
+    </Suspense>
+  );
 }
+
+export default OnboardingPage;

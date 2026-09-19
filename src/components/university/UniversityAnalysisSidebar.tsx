@@ -47,11 +47,8 @@ export function UniversityAnalysisSidebar({ university }: UniversityAnalysisSide
       </p>
       {analysis.admissionEstimate?.available && (
         <div className="mt-3 rounded-xl bg-paper-dim px-4 py-3">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-ink-soft">ULYS estimated chance</p>
+          <p className="text-[11px] font-medium uppercase tracking-wide text-ink-soft">ULYS Fit</p>
           <div className="mt-1 flex items-baseline gap-2">
-            <span className="font-display text-[20px] font-bold text-blue">
-              {analysis.admissionEstimate.min}–{analysis.admissionEstimate.max}%
-            </span>
             <span className="text-[11px] text-ink-soft">
               Confidence: {analysis.admissionEstimate.confidence === "High" ? "Высокая" : analysis.admissionEstimate.confidence === "Medium" ? "Средняя" : "Низкая"}
             </span>

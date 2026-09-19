@@ -39,7 +39,8 @@ class SyncProfile(BaseModel):
     goals: Optional[list[str]] = None
     portfolio_strength: Optional[int] = None
     avatar_initials: Optional[str] = None
-    academic_info: Optional[Any] = None
+    academic_info: Optional[dict[str, Any]] = None
+    onboarding_completed: Optional[bool] = None
 
 
 class SyncRequest(BaseModel):

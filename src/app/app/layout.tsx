@@ -9,6 +9,7 @@ import { initAuth, getAuthState, subscribeAuth, syncPendingActions } from "@/lib
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -59,10 +60,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen bg-paper-dim/40">
-      <Sidebar />
-      <div className="flex min-w-0 flex-1 flex-col pb-20 lg:pb-0">{children}</div>
-      <BottomNav />
+    <div
+      className={`grid w-full min-w-0 min-h-screen bg-paper-dim/40 ${sidebarCollapsed ? "lg:grid-cols-[72px_minmax(0,1fr)]" : "lg:grid-cols-[220px_minmax(0,1fr)]"}`}
+    >
+      <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed((v) => !v)} />
+      <div className="flex min-w-0 flex-col">
+        <div className="flex flex-1 flex-col min-w-0 pb-20 lg:pb-0">{children}</div>
+        <BottomNav />
+      </div>
     </div>
   );
 }

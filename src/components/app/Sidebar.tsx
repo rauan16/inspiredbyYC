@@ -1,127 +1,286 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
-  LayoutGrid,
-  Compass,
-  Sparkles,
-  FileText,
+  Briefcase,
   GraduationCap,
-  Bookmark,
-  User,
+  LayoutDashboard,
+  Map,
+  Menu,
   Settings,
-  LogOut,
+  Sparkles,
+  UserRound,
+  Users,
+  X,
+  GitCompareArrows,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { student } from "@/data/student";
 import { getAccount } from "@/lib/account";
-import { useEffect, useState } from "react";
-import { logout } from "@/lib/auth";
-import { useOnlineStatus } from "@/hooks/useApi";
 
-const navItems = [
-  { href: "/app", label: "Дашборд", icon: LayoutGrid },
-  { href: "/app/opportunities", label: "Возможности", icon: Compass },
-  { href: "/app/mentor", label: "AI Mentor", icon: Sparkles },
-  { href: "/app/portfolio", label: "Портфолио", icon: FileText },
-  { href: "/app/universities", label: "Университеты", icon: GraduationCap },
-  { href: "/app/saved", label: "Сохранённое", icon: Bookmark },
-  { href: "/app/profile", label: "Профиль", icon: User },
+const primaryNav = [
+  { label: "Главная", href: "/app", icon: LayoutDashboard },
+  { label: "Мой профиль", href: "/app/profile", icon: UserRound },
+  { label: "Университеты", href: "/app/universities", icon: GraduationCap },
+  { label: "Roadmap", href: "/app/roadmap", icon: Map },
 ];
 
-export function Sidebar() {
-  const router = useRouter();
+const featureNav = [
+  { label: "ULYS What-If", href: "/app/what-if", icon: GitCompareArrows },
+  { label: "ULIE", href: "/app/ulie", icon: Sparkles },
+  { label: "Mentor", href: "/app/mentor?view=human", icon: Users },
+];
+
+const bottomNav = [
+  { label: "Заявки", href: "/app/applications", icon: Briefcase },
+];
+
+function NavLink({
+  label,
+  href,
+  icon: Icon,
+  collapsed,
+  pathname,
+}: {
+  label: string;
+  href: string;
+  icon: React.ElementType;
+  collapsed: boolean;
+  pathname: string;
+}) {
+  const active =
+    pathname === href || (href.split("?")[0] !== "/app" && pathname.startsWith(`${href.split("?")[0]}/`));
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium transition-all duration-200",
+        active ? "bg-red/10 text-red" : "text-ink-soft hover:bg-red/[0.06] hover:text-ink"
+      )}
+      aria-current={active ? "page" : undefined}
+      title={collapsed ? label : undefined}
+    >
+      <Icon
+        className={cn("h-4 w-4 shrink-0", active ? "text-red" : "text-ink-soft/70")}
+      />
+      <span
+        className={cn(
+          "whitespace-nowrap transition-all duration-200",
+          collapsed ? "hidden w-0 overflow-hidden opacity-0" : "block w-auto opacity-100"
+        )}
+      >
+        {label}
+      </span>
+    </Link>
+  );
+}
+
+function NavGroup({
+  items,
+  collapsed,
+  pathname,
+}: {
+  items: typeof primaryNav;
+  collapsed: boolean;
+  pathname: string;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      {items.map((item) => (
+        <NavLink key={item.href} {...item} collapsed={collapsed} pathname={pathname} />
+      ))}
+    </div>
+  );
+}
+
+export function Sidebar({
+  collapsed,
+  onToggle,
+}: {
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
   const pathname = usePathname();
-  const [account, setAccount] = useState(student);
-  const isOnline = useOnlineStatus();
-
-  useEffect(() => {
-    const update = () => setAccount(getAccount());
-    update();
-    window.addEventListener("ulys-account-updated", update);
-    return () => window.removeEventListener("ulys-account-updated", update);
-  }, []);
-
-  const handleLogout = async () => {
-    await logout();
-    router.replace("/login");
-  };
+  const account = getAccount();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <aside className="sticky top-0 hidden h-screen w-72 shrink-0 flex-col border-r border-line/70 bg-white/75 px-4 py-6 backdrop-blur-xl lg:flex">
-      <div className="mb-6 flex items-center justify-between px-2">
-        <Link href="/" className="inline-flex items-center gap-2 font-display text-[20px] font-bold tracking-[-0.06em]">
-          <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-red text-sm text-white shadow-[0_12px_25px_rgba(226,56,43,0.35)]">
-            U
-          </span>
-          ULYS
-        </Link>
-        <span
-          className={cn(
-            "h-2.5 w-2.5 rounded-full",
-            isOnline ? "bg-green-500" : "bg-yellow"
-          )}
-          title={isOnline ? "Онлайн" : "Оффлайн"}
-        />
-      </div>
+    <>
+      <button
+        type="button"
+        onClick={() => setMobileOpen(true)}
+        className="fixed left-4 top-4 z-50 flex h-10 w-10 items-center justify-center rounded-xl border border-line bg-white text-ink shadow-sm lg:hidden"
+        aria-label="Открыть меню"
+      >
+        <Menu className="h-5 w-5" />
+      </button>
 
-      <nav className="mt-2 flex flex-1 flex-col gap-1.5">
-        {navItems.map((item) => {
-          const active = item.href === "/app" ? pathname === "/app" : pathname.startsWith(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
+      <aside
+        className={cn(
+          "flex flex-col border-r border-line bg-paper transition-[width] duration-200",
+          collapsed ? "w-[72px] px-2" : "w-[220px] px-4 py-5",
+          "lg:flex hidden"
+        )}
+      >
+        <div className="flex items-center justify-between">
+          <Link
+            href="/app"
+            className={cn("inline-flex items-center gap-2.5 font-display text-[17px] font-bold text-ink", collapsed && "px-1")}
+            aria-label="ULYS"
+          >
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red text-white">
+              ✦
+            </span>
+            <span
               className={cn(
-                "flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[13.5px] font-medium transition-all duration-200",
-                active
-                  ? "bg-ink text-paper shadow-[0_12px_25px_rgba(41,37,34,0.18)]"
-                  : "text-ink-soft hover:-translate-x-0.5 hover:bg-ink/5 hover:text-ink"
+                "whitespace-nowrap transition-all duration-200",
+                collapsed ? "hidden w-0 overflow-hidden opacity-0" : "block w-auto opacity-100"
               )}
             >
-              <item.icon className="h-[18px] w-[18px]" />
-              {item.label}
-            </Link>
-          );
-        })}
-      </nav>
+              ULYS
+            </span>
+          </Link>
+          <button
+            type="button"
+            onClick={onToggle}
+            className={cn(
+              "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-ink-soft transition-colors hover:bg-red/[0.06] hover:text-ink",
+              collapsed ? "" : "ml-auto"
+            )}
+            aria-label={collapsed ? "Развернуть боковую панель" : "Свернуть боковую панель"}
+            title={collapsed ? "Развернуть" : "Свернуть"}
+          >
+            {collapsed ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <ChevronLeft className="h-4 w-4" />
+            )}
+          </button>
+        </div>
 
-      <div className="mt-2 flex flex-col gap-1.5">
-        <Link
-          href="/app/settings"
-          className={cn(
-            "flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[13.5px] font-medium transition-all duration-200",
-            pathname.startsWith("/app/settings")
-              ? "bg-ink text-paper"
-              : "text-ink-soft hover:bg-ink/5 hover:text-ink"
-          )}
-        >
-          <Settings className="h-[18px] w-[18px]" />
-          Настройки
-        </Link>
+        <nav className="mt-9 flex flex-1 flex-col gap-6" aria-label="Основная навигация">
+          <NavGroup items={primaryNav} collapsed={collapsed} pathname={pathname} />
 
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[13.5px] font-medium text-ink-soft transition-all duration-200 hover:bg-red/5 hover:text-red"
-        >
-          <LogOut className="h-[18px] w-[18px]" />
-          Выйти
-        </button>
+          <div className={cn("mx-3 border-t border-line", collapsed && "mx-2")} />
 
-        <Link
-          href="/app/profile"
-          className="mt-3 flex items-center gap-2.5 rounded-2xl border border-line/80 bg-paper-dim/80 px-2.5 py-2.5 shadow-[0_10px_20px_rgba(41,37,34,0.04)] transition-transform duration-200 hover:-translate-y-0.5"
-        >
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[radial-gradient(circle_at_top,_#f59d90,_#e2382b)] font-display text-[12px] font-semibold text-white shadow-[0_12px_24px_rgba(226,56,43,0.28)]">
-            {account.avatarInitials}
-          </span>
-          <div className="min-w-0">
-            <p className="truncate text-[13px] font-medium">{account.name}</p>
-            <p className="truncate text-[11.5px] text-ink-soft">{account.grade}</p>
+          <NavGroup items={featureNav} collapsed={collapsed} pathname={pathname} />
+
+          <div className={cn("mx-3 border-t border-line", collapsed && "mx-2")} />
+
+          <div className="flex flex-col gap-1">
+            {bottomNav.map((item) => (
+              <NavLink key={item.href} {...item} collapsed={collapsed} pathname={pathname} />
+            ))}
           </div>
-        </Link>
-      </div>
-    </aside>
+        </nav>
+
+        <div className={cn("mt-auto space-y-3", collapsed && "items-center")}>
+          <Link
+            href="/app/settings"
+            className={cn(
+              "flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium transition-colors",
+              pathname === "/app/settings" ? "bg-red/10 text-red" : "text-ink-soft hover:bg-red/[0.06] hover:text-ink",
+              collapsed && "justify-center"
+            )}
+            title={collapsed ? "Настройки" : undefined}
+          >
+            <Settings
+              className={cn(
+                "h-4 w-4 shrink-0",
+                pathname === "/app/settings" ? "text-red" : "text-ink-soft/70"
+              )}
+            />
+            <span
+              className={cn(
+                "whitespace-nowrap transition-all duration-200",
+                collapsed ? "hidden w-0 overflow-hidden opacity-0" : "block w-auto opacity-100"
+              )}
+            >
+              Настройки
+            </span>
+          </Link>
+          <div
+            className={cn("rounded-2xl border border-line bg-white p-3", collapsed && "flex justify-center px-2")}
+          >
+            <div className={cn("flex items-center gap-2.5", collapsed && "flex-col gap-1")}>
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red text-[11px] font-bold text-white">
+                {(account.name || "U").trim().split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase()}
+              </span>
+              <div className={cn("min-w-0", collapsed ? "hidden" : "block")}>
+                <p className="truncate text-[12.5px] font-medium text-ink">{account.name || "Профиль"}</p>
+                <p className="truncate text-[10.5px] text-ink-soft">Профиль</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {mobileOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div className="absolute inset-0 bg-ink/30" onClick={() => setMobileOpen(false)} />
+          <div className="absolute left-0 top-0 h-full w-60 bg-paper px-4 py-5 shadow-xl">
+            <div className="flex items-center justify-between px-1">
+              <Link
+                href="/app"
+                className="inline-flex items-center gap-2.5 font-display text-[17px] font-bold text-ink"
+                aria-label="ULYS"
+                onClick={() => setMobileOpen(false)}
+              >
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-red text-white">✦</span>
+                ULYS
+              </Link>
+              <button
+                type="button"
+                onClick={() => setMobileOpen(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-ink-soft hover:bg-white"
+                aria-label="Закрыть меню"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <nav className="mt-9 flex flex-1 flex-col gap-6" aria-label="Основная навигация">
+              <NavGroup items={primaryNav} collapsed={false} pathname={pathname} />
+              <div className="mx-3 border-t border-line" />
+              <NavGroup items={featureNav} collapsed={false} pathname={pathname} />
+              <div className="mx-3 border-t border-line" />
+              <div className="flex flex-col gap-1">
+                {bottomNav.map((item) => (
+                  <NavLink key={item.href} {...item} collapsed={false} pathname={pathname} />
+                ))}
+              </div>
+            </nav>
+
+            <div className="mt-auto space-y-3">
+              <Link
+                href="/app/settings"
+                className={cn(
+                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium transition-colors",
+                  pathname === "/app/settings" ? "bg-red/10 text-red" : "text-ink-soft hover:bg-red/[0.06] hover:text-ink"
+                )}
+                onClick={() => setMobileOpen(false)}
+              >
+                <Settings className={cn("h-4 w-4", pathname === "/app/settings" ? "text-red" : "text-ink-soft/70")} />
+                Настройки
+              </Link>
+              <div className="rounded-2xl border border-line bg-white p-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red text-[11px] font-bold text-white">
+                    {(account.name || "U").trim().split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase()}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-[12.5px] font-medium text-ink">{account.name || "Профиль"}</p>
+                    <p className="truncate text-[10.5px] text-ink-soft">Профиль</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

@@ -166,8 +166,22 @@ export interface University {
   tuition?: string;
   financialAid?: string;
   officialAdmissionsUrl: string;
-   lastVerifiedAt: string;
-   analysis?: UniversityAnalysis;
+  lastVerifiedAt: string;
+  analysis?: UniversityAnalysis;
+}
+
+export interface UniversityRecommendation {
+  university_id: string;
+  name: string;
+  country: string;
+  city: string;
+  program: string;
+  match_score: number;
+  category: string;
+  reasons: string[];
+  strengths: string[];
+  gaps: string[];
+  next_actions: string[];
 }
 
 export interface PortfolioEntry {
@@ -223,13 +237,43 @@ export interface AcademicInfo {
   school?: string;
   curriculum?: string;
   gpa?: number;
-  gpaScale?: "4.0" | "5.0" | "100" | "percentage";
   sat?: number;
   act?: number;
   ielts?: number;
   toefl?: number;
   intendedMajor?: string;
   graduationYear?: string;
+  educationLevel?: string;
+  country?: string;
+  countryOther?: string;
+  city?: string;
+  gpaValue?: number | null;
+  gpaScale?: string | null;
+  gpaScaleOther?: string;
+  gpaUnknown?: boolean;
+  englishTest?: string;
+  englishStatus?: string;
+  englishScore?: number | null;
+  satStatus?: string;
+  satScore?: number | null;
+  actStatus?: string;
+  actScore?: number | null;
+  primaryField?: string;
+  secondaryInterests?: string[];
+  priorities?: string[];
+  preferredCountries?: string[];
+  countriesUndecided?: boolean;
+  budgetMax?: number | null;
+  budgetCurrency?: string;
+  budgetUndecided?: boolean;
+  scholarshipPreference?: string;
+  studyLanguage?: string;
+  studyLanguageOther?: string;
+  targetYear?: string;
+  targetIntake?: string;
+  constraints?: string[];
+  notes?: string;
+  onboardingCompleted?: boolean;
 }
 
 export interface Student {
@@ -242,4 +286,104 @@ export interface Student {
   portfolioStrength?: number;
   avatarInitials: string;
   academicInfo?: AcademicInfo;
+  onboardingCompleted?: boolean;
+}
+
+export type WhatIfField = "ielts" | "sat" | "budget" | "preferred_country" | "intended_major";
+
+export interface WhatIfRequest {
+  field: WhatIfField;
+  value: string | number | string[];
+}
+
+export interface ScenarioProfile {
+  field: string;
+  before: string | number | string[] | null;
+  after: string | number | string[];
+}
+
+export interface UniversityMatchDiff {
+  university_id: string;
+  name: string;
+  country: string;
+  before_score: number | null;
+  after_score: number | null;
+  score_change: number;
+  before_category: string | null;
+  after_category: string | null;
+  category_changed: boolean;
+}
+
+export interface RecommendationsDiff {
+  before_top_matches: UniversityMatchDiff[];
+  after_top_matches: UniversityMatchDiff[];
+  added: UniversityMatchDiff[];
+  removed: UniversityMatchDiff[];
+  changed_scores: UniversityMatchDiff[];
+}
+
+export interface RoadmapTaskDiff {
+  id: string;
+  title: string;
+  category: string;
+  priority: string;
+  status: string;
+}
+
+export interface RoadmapDiff {
+  added_tasks: RoadmapTaskDiff[];
+  removed_tasks: RoadmapTaskDiff[];
+  unchanged_count: number;
+}
+
+export interface NextActionDiff {
+  before: RoadmapTaskDiff | null;
+  after: RoadmapTaskDiff | null;
+  changed: boolean;
+}
+
+export interface WhatIfResponse {
+  scenario: ScenarioProfile;
+  recommendations: RecommendationsDiff;
+  roadmap: RoadmapDiff;
+  next_action: NextActionDiff;
+  summary: string;
+}
+
+export type TaskCategory = "ACADEMICS" | "LANGUAGE" | "UNIVERSITY_RESEARCH" | "APPLICATION" | "ESSAYS" | "DOCUMENTS" | "EXTRACURRICULARS";
+
+export type TaskPriority = "high" | "medium" | "low";
+
+export type TaskStatus = "pending" | "in_progress" | "completed";
+
+export interface RoadmapTask {
+  id: string;
+  title: string;
+  description: string;
+  category: TaskCategory;
+  priority: TaskPriority;
+  status: TaskStatus;
+  deadline?: string | null;
+  target_date?: string | null;
+  reason: string;
+  related_university?: string | null;
+}
+
+export interface NextBestAction {
+  task_id: string;
+  title: string;
+  category: TaskCategory;
+  priority: TaskPriority;
+  deadline?: string | null;
+  target_date?: string | null;
+  reason: string;
+  completed: boolean;
+}
+
+export interface RoadmapResponse {
+  tasks: RoadmapTask[];
+  generated_at: string;
+  profile_completeness: number;
+  top_matches_count: number;
+  next_best_action?: NextBestAction | null;
 }

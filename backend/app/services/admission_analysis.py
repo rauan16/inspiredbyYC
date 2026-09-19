@@ -13,7 +13,7 @@ RETRY_DELAY_BASE = 3
 
 ADMISSION_ANALYST_PROMPT = """You are ULYS, an AI university admissions advisor. Analyze the student's complete profile against the selected university and program.
 
-CRITICAL: The system has already computed an authoritative admission estimate. You MUST use that estimate and explain it. Do NOT invent your own probability range.
+CRITICAL: The system has already computed an authoritative fit score. You MUST use that estimate and explain it. Do NOT invent your own probability range.
 
 Your analysis must be structured as JSON with these exact keys:
 
@@ -54,7 +54,7 @@ CRITICAL RULES:
 2. If university data is unavailable, say "Official data unavailable" in the explanation.
 3. If student data is missing, mark the criterion as "MISSING" with explanation "Information missing."
 4. If a university does not publish a requirement, mark it "UNKNOWN".
-5. Use the PRE-COMPUTED ADMISSION ESTIMATE provided in the context. Do not calculate your own probability.
+5. Use the PRE-COMPUTED FIT SCORE provided in the context. Do not calculate your own probability.
 6. Evaluate achievements and projects semantically — not by counting them.
 7. Consider the relevance of the student's profile to the selected program.
 8. If the student meets the published minimum requirement, mark it as "MET".
@@ -203,8 +203,8 @@ async def get_admission_analysis(
 
     deterministic_estimate = compute_admission_estimate(student_profile, portfolio, university)
     estimate_context = f"""
-PRE-COMPUTED ADMISSION ESTIMATE (authoritative, use this exact range):
-  Admission: {deterministic_estimate['min']}–{deterministic_estimate['max']}%
+PRE-COMPUTED FIT SCORE (authoritative):
+  Fit Score: {deterministic_estimate['min']}–{deterministic_estimate['max']}
   Confidence: {deterministic_estimate['confidence']}
   Factors: {', '.join(deterministic_estimate.get('factors', [])[:8])}
   Gaps: {', '.join(deterministic_estimate.get('gaps', [])[:8])}
@@ -218,7 +218,7 @@ PRE-COMPUTED ADMISSION ESTIMATE (authoritative, use this exact range):
 
 {estimate_context}
 
-CRITICAL INSTRUCTION: The admission estimate above is authoritative. Use it in your response. Do not calculate or invent a different probability range.
+CRITICAL INSTRUCTION: The fit score above is authoritative. Use it in your response.
 
 Return your analysis as JSON only, following the exact schema specified in the system prompt. Consider all aspects: formal requirements, academic strength, extracurricular profile, portfolio/projects, and program-specific fit."""
 

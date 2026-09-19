@@ -123,11 +123,8 @@ export function AdmissionAnalysisCard({
 
         {analysis.admissionEstimate.available && (
           <div className="mb-4 rounded-xl bg-paper-dim px-4 py-3">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-ink-soft">Оценка шансов</p>
+            <p className="text-[11px] font-medium uppercase tracking-wide text-ink-soft">Совместимость профиля</p>
             <div className="mt-1 flex items-baseline gap-2">
-              <span className="font-display text-[20px] font-bold text-blue">
-                {analysis.admissionEstimate.min}%–{analysis.admissionEstimate.max}%
-              </span>
               {analysis.admissionEstimate.confidence && (
                 <span className="text-[11px] text-ink-soft">
                   Уверенность: {analysis.admissionEstimate.confidence === "HIGH" ? "Высокая" : analysis.admissionEstimate.confidence === "MEDIUM" ? "Средняя" : "Низкая"}

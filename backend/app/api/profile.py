@@ -100,4 +100,5 @@ def _row_to_profile(row) -> ProfileResponse:
         portfolio_strength=row["portfolio_strength"] or 0,
         avatar_initials=row["avatar_initials"],
         academic_info=academic_info,
+        onboarding_completed=bool(row["onboarding_completed"]) if "onboarding_completed" in row.keys() else bool((academic_info or {}).get("onboardingCompleted", False)),
     )

@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { TopBar } from "@/components/app/TopBar";
 import { Field } from "@/components/ui/Field";
-import { cn } from "@/lib/utils";
-import { getAccount, StoredAccount } from "@/lib/account";
+import { getAccount } from "@/lib/account";
+import { logout } from "@/lib/auth";
 import { useProfile } from "@/hooks/useProfile";
+import { cn } from "@/lib/utils";
 
 function Toggle({ checked, onChange, label }: { checked: boolean; onChange: () => void; label: string }) {
   return (
@@ -30,21 +32,18 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: () =
 }
 
 export default function SettingsPage() {
-  const [notifs, setNotifs] = useState({
-    deadlines: true,
-    recommendations: true,
-    mentorTips: false,
-  });
-  const [account, setAccount] = useState<StoredAccount>(getAccount());
+  const router = useRouter();
+  const account = getAccount();
   const { profile } = useProfile();
-
-  useEffect(() => {
-    setAccount(getAccount());
-  }, []);
-
+  const [notifs, setNotifs] = useState({ deadlines: true, recommendations: true });
   const displayName = profile.name ?? account.name;
-  const displayEmail = profile.email ?? account.email ?? "pasha.b@example.com";
+  const displayEmail = profile.email ?? account.email;
   const displayLocation = profile.location ?? account.location;
+
+  async function handleLogout() {
+    await logout();
+    router.push("/login");
+  }
 
   return (
     <>
@@ -53,16 +52,16 @@ export default function SettingsPage() {
         <section className="rounded-[var(--radius-card)] border border-line bg-white p-5 md:p-6">
           <h2 className="font-display text-[15px] font-semibold">Аккаунт</h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <Field id="email" label="Email" type="email" defaultValue={displayEmail} />
-            <Field id="password" label="Пароль" type="password" defaultValue="••••••••" />
+            <Field id="email" label="Email" type="email" value={displayEmail || "Не указано"} readOnly />
+            <Field id="password" label="Пароль" type="password" value="••••••••" readOnly />
           </div>
         </section>
 
         <section className="rounded-[var(--radius-card)] border border-line bg-white p-5 md:p-6">
           <h2 className="font-display text-[15px] font-semibold">Профиль</h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <Field id="name" label="Имя" type="text" defaultValue={displayName} />
-            <Field id="location" label="Город" type="text" defaultValue={displayLocation} />
+            <Field id="name" label="Имя" type="text" value={displayName || "Не указано"} readOnly />
+            <Field id="location" label="Город" type="text" value={displayLocation || "Не указано"} readOnly />
           </div>
         </section>
 
@@ -74,54 +73,21 @@ export default function SettingsPage() {
                 <p className="text-[13.5px] font-medium">Дедлайны</p>
                 <p className="text-[12px] text-ink-soft">Напоминания о приближающихся дедлайнах</p>
               </div>
-              <Toggle
-                checked={notifs.deadlines}
-                onChange={() => setNotifs((n) => ({ ...n, deadlines: !n.deadlines }))}
-                label="Уведомления о дедлайнах"
-              />
+              <Toggle checked={notifs.deadlines} onChange={() => setNotifs((current) => ({ ...current, deadlines: !current.deadlines }))} label="Уведомления о дедлайнах" />
             </div>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[13.5px] font-medium">Рекомендации</p>
                 <p className="text-[12px] text-ink-soft">Новые подходящие возможности</p>
               </div>
-              <Toggle
-                checked={notifs.recommendations}
-                onChange={() => setNotifs((n) => ({ ...n, recommendations: !n.recommendations }))}
-                label="Уведомления о рекомендациях"
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[13.5px] font-medium">Советы от AI Mentor</p>
-                <p className="text-[12px] text-ink-soft">Периодические подсказки от Uli</p>
-              </div>
-              <Toggle
-                checked={notifs.mentorTips}
-                onChange={() => setNotifs((n) => ({ ...n, mentorTips: !n.mentorTips }))}
-                label="Советы от AI Mentor"
-              />
+              <Toggle checked={notifs.recommendations} onChange={() => setNotifs((current) => ({ ...current, recommendations: !current.recommendations }))} label="Уведомления о рекомендациях" />
             </div>
           </div>
         </section>
 
-        <section className="rounded-[var(--radius-card)] border border-line bg-white p-5 md:p-6">
-          <h2 className="font-display text-[15px] font-semibold">Предпочтения</h2>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="lang" className="text-[13px] font-medium">Язык</label>
-              <select id="lang" defaultValue="ru" className="h-11 rounded-xl border border-line px-3.5 text-[14px] outline-none">
-                <option value="ru">Русский</option>
-                <option value="kk">Қазақша</option>
-                <option value="en">English</option>
-              </select>
-            </div>
-          </div>
-        </section>
-
-        <div className="flex justify-end">
-          <button className="rounded-full bg-ink px-5 py-2.5 text-[13.5px] font-medium text-paper hover:bg-red">
-            Сохранить изменения
+        <div className="flex flex-wrap justify-end gap-3">
+          <button type="button" onClick={handleLogout} className="rounded-full border border-line bg-white px-5 py-2.5 text-[13.5px] font-medium text-ink hover:border-red hover:text-red">
+            Выйти
           </button>
         </div>
       </div>

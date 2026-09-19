@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import admission, auth, mentor, opportunities, portfolio, profile, saved_opportunities, sync, universities
+from app.api import admission, auth, mentor, opportunities, portfolio, profile, roadmap, saved_opportunities, sync, universities, what_if
 from app.config import settings
 from app.database import init_db, seed_opportunities, seed_universities
 
@@ -40,4 +40,6 @@ app.include_router(portfolio.router)
 app.include_router(mentor.router)
 app.include_router(sync.router)
 app.include_router(admission.router)
+app.include_router(roadmap.router)
 app.include_router(universities.router)
+app.include_router(what_if.router)

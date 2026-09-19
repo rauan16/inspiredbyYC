@@ -46,7 +46,7 @@ SUPABASE_JWT_SECRET=your-jwt-secret
 
 OPENROUTER_API_KEY=your-openrouter-key
 AI_API_BASE_URL=https://openrouter.ai/api/v1
-AI_MODEL=deepseek/deepseek-chat
+AI_MODEL=openai/gpt-4o-mini
 
 CORS_ALLOWED_ORIGINS=http://localhost:3000,https://ulys-gamma.vercel.app
 ```

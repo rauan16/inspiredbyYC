@@ -12,9 +12,9 @@ class Settings(BaseSettings):
 
     SECRET_KEY: str = secrets.token_urlsafe(32)
 
-    AI_API_BASE_URL: str = "http://localhost:20128/v1"
+    AI_API_BASE_URL: str = "https://openrouter.ai/api/v1"
     OPENROUTER_API_KEY: str = ""
-    AI_MODEL: str = ""
+    AI_MODEL: str = "openai/gpt-4o-mini"
 
     CORS_ALLOWED_ORIGINS: str = "http://localhost:3000"
 
